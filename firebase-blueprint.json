@@ -1,0 +1,94 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile with role determination (normal, subscriber, admin)",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["normal", "subscriber", "admin"] },
+        "subscriptionPlan": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "UserHabit": {
+      "title": "UserHabit",
+      "description": "User spiritual habits and prayer tracking logs",
+      "type": "object",
+      "properties": {
+        "habitId": { "type": "string" },
+        "userId": { "type": "string" },
+        "habitName": { "type": "string" },
+        "streak": { "type": "number" },
+        "lastCompletedDate": { "type": "string" }
+      },
+      "required": ["habitId", "userId", "habitName"]
+    },
+    "SubscriptionPlan": {
+      "title": "SubscriptionPlan",
+      "description": "Subscription plans managed by admin for premium AI features",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "string" },
+        "features": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "name", "price"]
+    },
+    "PrayerRecord": {
+      "title": "PrayerRecord",
+      "description": "Daily prayer attendance record synced across devices",
+      "type": "object",
+      "properties": {
+        "dateStr": { "type": "string" },
+        "userId": { "type": "string" },
+        "fajr": { "type": "boolean" },
+        "dhuhr": { "type": "boolean" },
+        "asr": { "type": "boolean" },
+        "maghrib": { "type": "boolean" },
+        "isha": { "type": "boolean" },
+        "completedCount": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["dateStr", "userId"]
+    },
+    "AdminConfig": {
+      "title": "AdminConfig",
+      "description": "Admin configuration and announcement data",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string" },
+        "value": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["key", "value"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile documents keyed by Firebase Auth UID"
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": "UserHabit",
+      "description": "User spiritual daily habit checklists"
+    },
+    "/users/{userId}/prayer_records/{recordId}": {
+      "schema": "PrayerRecord",
+      "description": "Historical prayer attendance logs for multi-device sync"
+    },
+    "/plans/{planId}": {
+      "schema": "SubscriptionPlan",
+      "description": "Available subscription tiers managed by admin"
+    },
+    "/admin_configs/{configId}": {
+      "schema": "AdminConfig",
+      "description": "Admin settings and module announcements"
+    }
+  }
+}

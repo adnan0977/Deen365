@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for adding the balanced Quran.com, Sunnah.com, and Alim.org scholarly modules:\n1. Quran.com Word-by-Word Translation & Root Grammar Explorer with morphology, root breakdown, and lexical occurrences.\n2. Sunnah.com Visual Sanad Narrator Chain drilldown with interactive transmission links, narrator credentials, and grading.\n3. Alim.org Comparative 4-Madhab Fiqh matrix (Hanafi, Maliki, Shafi'i, Hanbali) and Asbab al-Nuzul revelation contexts.",
+  "updatedAt":  "2026-10-31T18:45:12.693286017Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}
