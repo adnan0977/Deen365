@@ -33,6 +33,7 @@ import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.EmeraldPrimaryVariant
 import com.example.ui.theme.GoldAccent
 import com.example.ui.screens.ai.PersonalizedAiSpiritualGuideCard
+import com.example.ui.screens.ai.SpiritualAiChatView
 import com.example.ui.theme.GoldLight
 import com.example.ui.viewmodel.DeenUiState
 import com.example.ui.viewmodel.DeenViewModel
@@ -44,13 +45,62 @@ fun AiGuidanceScreen(
     viewModel: DeenViewModel,
     modifier: Modifier = Modifier
 ) {
-    val isSubscribed = state.userProfile?.role == "subscriber" || state.userProfile?.role == "admin" || state.coinsState.isPremium
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        // Tab Navigation: Spiritual Chat vs Daily Guide & Wisdom
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            tonalElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            PrimaryTabRow(
+                selectedTabIndex = state.activeChatTab,
+                containerColor = MaterialTheme.colorScheme.surface,
+                contentColor = EmeraldPrimary,
+                modifier = Modifier.testTag("ai_mode_tab_row")
+            ) {
+                Tab(
+                    selected = state.activeChatTab == 0,
+                    onClick = { viewModel.setActiveChatTab(0) },
+                    text = { Text("Spiritual Chat", fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.Chat, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    modifier = Modifier.testTag("ai_tab_chat")
+                )
+                Tab(
+                    selected = state.activeChatTab == 1,
+                    onClick = { viewModel.setActiveChatTab(1) },
+                    text = { Text("Daily Guide & Wisdom", fontWeight = FontWeight.Bold) },
+                    icon = { Icon(Icons.Default.MenuBook, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                    modifier = Modifier.testTag("ai_tab_daily_guide")
+                )
+            }
+        }
 
-    if (!isSubscribed) {
-        AiSubscriptionGateView(state = state, viewModel = viewModel, modifier = modifier)
-        return
+        if (state.activeChatTab == 0) {
+            SpiritualAiChatView(
+                state = state,
+                viewModel = viewModel,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            AiReflectionsListView(
+                state = state,
+                viewModel = viewModel,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
+}
 
+@Composable
+fun AiReflectionsListView(
+    state: DeenUiState,
+    viewModel: DeenViewModel,
+    modifier: Modifier = Modifier
+) {
     val keyboardController = LocalSoftwareKeyboardController.current
 
     val moodChips = listOf(

@@ -260,4 +260,145 @@ object PrayerTimeCalculator {
             asrMethodName = asrMethod.name
         )
     }
+
+    /**
+     * Formats GPS latitude and longitude into human-readable coordinates (e.g., 24.8607° N, 67.0011° E)
+     */
+    fun formatCoordinates(latitude: Double, longitude: Double): String {
+        val latDir = if (latitude >= 0) "N" else "S"
+        val lngDir = if (longitude >= 0) "E" else "W"
+        return "%.4f° %s, %.4f° %s".format(abs(latitude), latDir, abs(longitude), lngDir)
+    }
+
+    private data class PrayerInterval(
+        val nextName: String,
+        val nextTimeStr: String,
+        val targetMs: Long,
+        val startMs: Long,
+        val currentName: String,
+        val currentStartStr: String
+    )
+
+    /**
+     * Computes real-time dynamic countdown to the upcoming prayer down to the exact second,
+     * including hours, minutes, seconds, interval progress fraction (0f to 1f), and active prayer state.
+     */
+    fun getLiveCountdown(
+        schedule: PrayerSchedule,
+        nowMs: Long = System.currentTimeMillis()
+    ): LivePrayerCountdown {
+        val oneDayMs = 24 * 3600 * 1000L
+        val fajr = schedule.fajrTimestamp
+        val sunrise = schedule.sunriseTimestamp
+        val dhuhr = schedule.dhuhrTimestamp
+        val asr = schedule.asrTimestamp
+        val maghrib = schedule.maghribTimestamp
+        val isha = schedule.ishaTimestamp
+
+        // Safety fallback if timestamps are not yet populated
+        if (fajr <= 0L || dhuhr <= 0L || asr <= 0L || maghrib <= 0L || isha <= 0L) {
+            return LivePrayerCountdown(
+                nextPrayerName = schedule.nextPrayerName.ifBlank { "Next Prayer" },
+                nextPrayerTimeFormatted = schedule.dhuhr,
+                remainingMillis = 0L,
+                hours = 0L,
+                minutes = 0L,
+                seconds = 0L,
+                formattedHMS = "00:00:00",
+                progressFraction = 0f,
+                currentPrayerName = schedule.currentPrayerName.ifBlank { "Prayer Time" },
+                currentPrayerStartTime = "",
+                isFastingActive = schedule.isFastingActive,
+                fastingCountdownLabel = if (schedule.isFastingActive) "Iftar in" else "Suhoor ends in",
+                fastingCountdownHMS = "00:00:00"
+            )
+        }
+
+        val interval = when {
+            nowMs < fajr -> {
+                // Before Fajr today: current is previous night's Isha / Tahajjud
+                val yesterdayIsha = isha - oneDayMs
+                PrayerInterval("Fajr", schedule.fajr, fajr, yesterdayIsha, "Tahajjud / Qiyam", schedule.isha)
+            }
+            nowMs in fajr until sunrise -> {
+                PrayerInterval("Sunrise", schedule.sunrise, sunrise, fajr, "Fajr", schedule.fajr)
+            }
+            nowMs in sunrise until dhuhr -> {
+                PrayerInterval("Dhuhr", schedule.dhuhr, dhuhr, sunrise, "Duha (Ishraq)", schedule.sunrise)
+            }
+            nowMs in dhuhr until asr -> {
+                PrayerInterval("Asr", schedule.asr, asr, dhuhr, "Dhuhr", schedule.dhuhr)
+            }
+            nowMs in asr until maghrib -> {
+                PrayerInterval("Maghrib", schedule.maghrib, maghrib, asr, "Asr", schedule.asr)
+            }
+            nowMs in maghrib until isha -> {
+                PrayerInterval("Isha", schedule.isha, isha, maghrib, "Maghrib", schedule.maghrib)
+            }
+            else -> {
+                // After Isha: next is tomorrow's Fajr
+                val tomorrowFajr = fajr + oneDayMs
+                PrayerInterval("Fajr (Tomorrow)", schedule.fajr, tomorrowFajr, isha, "Isha", schedule.isha)
+            }
+        }
+
+        val remainingMs = (interval.targetMs - nowMs).coerceAtLeast(0L)
+        val totalSec = remainingMs / 1000L
+        val h = totalSec / 3600L
+        val m = (totalSec % 3600L) / 60L
+        val s = totalSec % 60L
+        val hms = "%02d:%02d:%02d".format(h, m, s)
+
+        val totalIntervalMs = (interval.targetMs - interval.startMs).coerceAtLeast(1L)
+        val elapsedMs = (nowMs - interval.startMs).coerceAtLeast(0L)
+        val fraction = (elapsedMs.toDouble() / totalIntervalMs.toDouble()).toFloat().coerceIn(0f, 1f)
+
+        // Fasting countdown (Suhoor or Iftar)
+        val isFasting = nowMs in fajr until maghrib
+        val (fastLabel, fastTargetMs) = if (isFasting) {
+            "Iftar in" to maghrib
+        } else {
+            val nextFajr = if (nowMs < fajr) fajr else fajr + oneDayMs
+            "Suhoor ends in" to nextFajr
+        }
+        val fastRemMs = (fastTargetMs - nowMs).coerceAtLeast(0L)
+        val fastSec = fastRemMs / 1000L
+        val fastH = fastSec / 3600L
+        val fastM = (fastSec % 3600L) / 60L
+        val fastS = fastSec % 60L
+        val fastHms = "%02d:%02d:%02d".format(fastH, fastM, fastS)
+
+        return LivePrayerCountdown(
+            nextPrayerName = interval.nextName,
+            nextPrayerTimeFormatted = interval.nextTimeStr,
+            remainingMillis = remainingMs,
+            hours = h,
+            minutes = m,
+            seconds = s,
+            formattedHMS = hms,
+            progressFraction = fraction,
+            currentPrayerName = interval.currentName,
+            currentPrayerStartTime = interval.currentStartStr,
+            isFastingActive = isFasting,
+            fastingCountdownLabel = fastLabel,
+            fastingCountdownHMS = fastHms
+        )
+    }
 }
+
+data class LivePrayerCountdown(
+    val nextPrayerName: String,
+    val nextPrayerTimeFormatted: String,
+    val remainingMillis: Long,
+    val hours: Long,
+    val minutes: Long,
+    val seconds: Long,
+    val formattedHMS: String,
+    val progressFraction: Float,
+    val currentPrayerName: String,
+    val currentPrayerStartTime: String,
+    val isFastingActive: Boolean,
+    val fastingCountdownLabel: String,
+    val fastingCountdownHMS: String
+)
+

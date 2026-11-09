@@ -36,6 +36,17 @@ import com.example.ui.screens.books.IslamicBooksScreen
 import com.example.ui.screens.community.CommunityScreen
 import com.example.ui.screens.learning.InteractiveLearningScreen
 import com.example.ui.screens.sahaba.SahabaBiographiesScreen
+import com.example.ui.screens.zakat.ZakatCalculatorScreen
+import com.example.ui.screens.names.AsmaUlHusnaScreen
+import com.example.ui.screens.hajj.HajjUmrahScreen
+import com.example.ui.screens.qada.QadaSalahScreen
+import com.example.ui.screens.mirath.MirathCalculatorScreen
+import com.example.ui.screens.calendar.HijriCalendarScreen
+import com.example.ui.screens.halal.HalalFoodGuideScreen
+import com.example.ui.screens.haramain.HaramainLiveScreen
+import com.example.ui.screens.khatam.KhatamPlannerScreen
+import com.example.ui.screens.ruqyah.RuqyahHealingScreen
+import com.example.ui.screens.names.BabyNamesScreen
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GoldLight
@@ -57,6 +68,17 @@ private fun getTabMetadata(tab: MainTab): Pair<String, Pair<ImageVector, ImageVe
         MainTab.COMMUNITY -> Pair("Community", Pair(Icons.Filled.Groups, Icons.Outlined.Groups))
         MainTab.INTERACTIVE_LEARNING -> Pair("Academy", Pair(Icons.Filled.School, Icons.Outlined.School))
         MainTab.SAHABA_BIOGRAPHIES -> Pair("Sahaba", Pair(Icons.Filled.Stars, Icons.Outlined.Stars))
+        MainTab.ZAKAT -> Pair("Zakat", Pair(Icons.Filled.Savings, Icons.Outlined.Savings))
+        MainTab.ASMA_UL_HUSNA -> Pair("99 Names", Pair(Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome))
+        MainTab.HAJJ_UMRAH -> Pair("Hajj/Umrah", Pair(Icons.Filled.Explore, Icons.Outlined.Explore))
+        MainTab.QADA_SALAH -> Pair("Qada", Pair(Icons.Filled.Update, Icons.Outlined.Update))
+        MainTab.INHERITANCE_CALCULATOR -> Pair("Mirath", Pair(Icons.Filled.Calculate, Icons.Outlined.Calculate))
+        MainTab.HIJRI_CALENDAR -> Pair("Hijri", Pair(Icons.Filled.CalendarMonth, Icons.Outlined.CalendarMonth))
+        MainTab.HALAL_GUIDE -> Pair("Halal", Pair(Icons.Filled.Restaurant, Icons.Outlined.Restaurant))
+        MainTab.HARAMAIN_LIVE -> Pair("Haramain", Pair(Icons.Filled.LiveTv, Icons.Outlined.LiveTv))
+        MainTab.KHATAM_PLANNER -> Pair("Khatam", Pair(Icons.Filled.Book, Icons.Outlined.Book))
+        MainTab.RUQYAH_HEALING -> Pair("Ruqyah", Pair(Icons.Filled.Healing, Icons.Outlined.Healing))
+        MainTab.BABY_NAMES -> Pair("Names", Pair(Icons.Filled.Face, Icons.Outlined.Face))
         MainTab.MOSQUES -> Pair("Mosques", Pair(Icons.Filled.Mosque, Icons.Outlined.Mosque))
         MainTab.AI_GUIDE -> Pair("Deen AI", Pair(Icons.Filled.AutoAwesome, Icons.Outlined.AutoAwesome))
         MainTab.MORE -> Pair("More", Pair(Icons.Filled.Widgets, Icons.Outlined.Widgets))
@@ -114,6 +136,17 @@ fun DeenMainScreen(
                 MainTab.COMMUNITY -> CommunityScreen(state = state, viewModel = viewModel)
                 MainTab.INTERACTIVE_LEARNING -> InteractiveLearningScreen(state = state, viewModel = viewModel)
                 MainTab.SAHABA_BIOGRAPHIES -> SahabaBiographiesScreen(state = state, viewModel = viewModel)
+                MainTab.ZAKAT -> ZakatCalculatorScreen(state = state, viewModel = viewModel)
+                MainTab.ASMA_UL_HUSNA -> AsmaUlHusnaScreen(state = state, viewModel = viewModel)
+                MainTab.HAJJ_UMRAH -> HajjUmrahScreen(state = state, viewModel = viewModel)
+                MainTab.QADA_SALAH -> QadaSalahScreen(state = state, viewModel = viewModel)
+                MainTab.INHERITANCE_CALCULATOR -> MirathCalculatorScreen(state = state, viewModel = viewModel)
+                MainTab.HIJRI_CALENDAR -> HijriCalendarScreen(state = state, viewModel = viewModel)
+                MainTab.HALAL_GUIDE -> HalalFoodGuideScreen(state = state, viewModel = viewModel)
+                MainTab.HARAMAIN_LIVE -> HaramainLiveScreen(state = state, viewModel = viewModel)
+                MainTab.KHATAM_PLANNER -> KhatamPlannerScreen(state = state, viewModel = viewModel)
+                MainTab.RUQYAH_HEALING -> RuqyahHealingScreen(state = state, viewModel = viewModel)
+                MainTab.BABY_NAMES -> BabyNamesScreen(state = state, viewModel = viewModel)
                 MainTab.MOSQUES -> MosqueLocatorScreen(state = state, viewModel = viewModel)
                 MainTab.TASBIH -> DhikrTrackingScreen(state = state, viewModel = viewModel)
                 MainTab.MORE -> MoreScreen(state = state, viewModel = viewModel)

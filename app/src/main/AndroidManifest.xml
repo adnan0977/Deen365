@@ -54,6 +54,10 @@
                 <action android:name="com.example.deen365.ACTION_SNOOZE_PRAYER" />
                 <action android:name="com.example.deen365.ACTION_FASTING_REMINDER" />
                 <action android:name="com.example.deen365.ACTION_LOG_FAST_COMPLETED" />
+                <action android:name="com.example.deen365.ACTION_QURAN_REMINDER" />
+                <action android:name="com.example.deen365.ACTION_MARK_QURAN_READ" />
+                <action android:name="com.example.deen365.ACTION_SNOOZE_QURAN" />
+                <action android:name="com.example.deen365.ACTION_FRIDAY_KAHF_REMINDER" />
             </intent-filter>
         </receiver>
 

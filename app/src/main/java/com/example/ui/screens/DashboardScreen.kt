@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,12 +29,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.example.data.model.AllahName
+import com.example.data.model.AsmaUlHusnaData
+import com.example.data.model.*
 import com.example.data.remote.AiCategory
 import com.example.data.repository.DailyDuaItem
 import com.example.data.repository.DuaOfTheDayRepository
+import com.example.data.repository.toDailyDuaItem
 import com.example.domain.CityPreset
 import com.example.domain.PrayerTimeCalculator
+import com.example.ui.components.HadithOfTheDayHeroCard
 import com.example.ui.components.UnlockProFeatureDialog
+import com.example.ui.screens.names.AllahNameDetailDialog
 import com.example.ui.theme.*
 import com.example.ui.viewmodel.DeenUiState
 import com.example.ui.viewmodel.DeenViewModel
@@ -46,6 +57,30 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     var showCityDialog by remember { mutableStateOf(false) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val fineGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true
+        val coarseGranted = permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        if (fineGranted || coarseGranted) {
+            Toast.makeText(context, "Detecting GPS location for prayer times...", Toast.LENGTH_SHORT).show()
+            viewModel.detectAndApplyDeviceLocation(context)
+        } else {
+            Toast.makeText(context, "Location permission denied. Using ${state.selectedCity.name}.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    var currentTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.prayerSchedule) {
+        while (true) {
+            currentTimeMs = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+    val liveCountdown = remember(state.prayerSchedule, currentTimeMs) {
+        PrayerTimeCalculator.getLiveCountdown(state.prayerSchedule, currentTimeMs)
+    }
 
     LazyColumn(
         modifier = modifier
@@ -195,19 +230,51 @@ fun DashboardScreen(
 
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(
-                                text = "Change",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                            Icon(
-                                imageVector = Icons.Default.KeyboardArrowDown,
-                                contentDescription = "Change City",
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                            IconButton(
+                                onClick = {
+                                    locationPermissionLauncher.launch(
+                                        arrayOf(
+                                            Manifest.permission.ACCESS_FINE_LOCATION,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION
+                                        )
+                                    )
+                                },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(if (state.isUsingDeviceLocation) EmeraldPrimary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant)
+                                    .testTag("dashboard_gps_btn")
+                            ) {
+                                Icon(
+                                    imageVector = if (state.isUsingDeviceLocation) Icons.Default.GpsFixed else Icons.Default.MyLocation,
+                                    contentDescription = "Detect Device Location",
+                                    tint = if (state.isUsingDeviceLocation) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showCityDialog = true }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                            ) {
+                                Text(
+                                    text = "Change",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = "Change City",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -336,9 +403,9 @@ fun DashboardScreen(
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Text(
-                                        text = if (state.prayerSchedule.isFastingActive) "Iftar in ${state.prayerSchedule.timeRemainingIftar}" else "Iftar: ${state.prayerSchedule.iftar}",
+                                        text = "${liveCountdown.fastingCountdownLabel} ${liveCountdown.fastingCountdownHMS}",
                                         color = Color.White.copy(alpha = 0.9f),
-                                        style = MaterialTheme.typography.labelMedium
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                     )
                                 }
                             }
@@ -353,15 +420,15 @@ fun DashboardScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = state.prayerSchedule.nextPrayerName,
+                                    text = liveCountdown.nextPrayerName,
                                     style = MaterialTheme.typography.headlineLarge.copy(
                                         fontWeight = FontWeight.ExtraBold,
                                         color = Color.White
                                     )
                                 )
                                 Text(
-                                    text = "in ${state.prayerSchedule.timeRemainingNextPrayer}",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = "in ${liveCountdown.formattedHMS} (${liveCountdown.nextPrayerTimeFormatted})",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                                     color = GoldLight
                                 )
                             }
@@ -399,6 +466,14 @@ fun DashboardScreen(
             }
         }
 
+        // Daily Spiritual Reminders & Consistency Card
+        item {
+            DashboardSpiritualRemindersCard(
+                state = state,
+                viewModel = viewModel
+            )
+        }
+
         // AI Personalized Spiritual Advisor Card
         item {
             com.example.ui.screens.ai.PersonalizedGuidanceCard(
@@ -409,6 +484,14 @@ fun DashboardScreen(
                 fastingStreak = state.fastingStreak,
                 isFastingToday = state.isFastingToday,
                 onRefreshGuidance = { viewModel.generatePersonalizedSpiritualGuidance() }
+            )
+        }
+
+        // Spiritual Vitality & Goals Card
+        item {
+            DashboardSpiritualProgressCard(
+                state = state,
+                onOpenProfile = { viewModel.openUserAccountDialog() }
             )
         }
 
@@ -596,6 +679,17 @@ fun DashboardScreen(
                                     val icon = when (module.id) {
                                         "quran" -> Icons.Default.MenuBook
                                         "namaz" -> Icons.Default.Schedule
+                                        "asma_ul_husna" -> Icons.Default.AutoAwesome
+                                        "hajj_umrah" -> Icons.Default.Explore
+                                        "qada_salah" -> Icons.Default.Update
+                                        "zakat" -> Icons.Default.Savings
+                                        "mirath" -> Icons.Default.Calculate
+                                        "hijri_calendar" -> Icons.Default.CalendarMonth
+                                        "khatam_planner" -> Icons.Default.Book
+                                        "ruqyah_healing" -> Icons.Default.Healing
+                                        "halal_guide" -> Icons.Default.Restaurant
+                                        "baby_names" -> Icons.Default.Face
+                                        "haramain_live" -> Icons.Default.LiveTv
                                         "ai_guide" -> Icons.Default.AutoAwesome
                                         "fasting" -> Icons.Default.NightsStay
                                         "community" -> Icons.Default.Groups
@@ -645,12 +739,80 @@ fun DashboardScreen(
             }
         }
 
+        // 🌟 Dedicated 99 Names of Allah Entry Card with Preview & Link to Audio-Enabled List
+        item {
+            NamesOfAllahDashboardCard(
+                state = state,
+                onPlayAudio = { name -> viewModel.playNamePronunciation(name) },
+                onSelectName = { name -> viewModel.selectNameForDetail(name) },
+                onViewAllNames = { viewModel.setTab(MainTab.ASMA_UL_HUSNA) }
+            )
+        }
+
+        // 🌟 Dedicated Hijri Events & Sunnah Fasting Card
+        item {
+            HijriAndFastingDashboardCard(
+                state = state,
+                onToggleFast = { id -> viewModel.toggleSunnahFast(id) },
+                onViewFullCalendar = { viewModel.setTab(MainTab.HIJRI_CALENDAR) }
+            )
+        }
+
+        // 🌟 Dedicated Islamic Inheritance (Mirath) Quick Card
+        item {
+            MirathCalculatorDashboardCard(
+                state = state,
+                onOpenCalculator = { viewModel.setTab(MainTab.INHERITANCE_CALCULATOR) }
+            )
+        }
+
+        // 🌟 Dedicated Khatam Quran Target Planner Card
+        item {
+            KhatamPlannerDashboardCard(
+                state = state,
+                onAddPages = { pgs -> viewModel.addKhatamPages(pgs) },
+                onOpenPlanner = { viewModel.setTab(MainTab.KHATAM_PLANNER) }
+            )
+        }
+
+        // 🌟 Dedicated Ruqyah & Spiritual Healing Card
+        item {
+            RuqyahHealingDashboardCard(
+                state = state,
+                onPlayAudio = { verse -> viewModel.playRuqyahAudio(verse) },
+                onOpenRuqyah = { viewModel.setTab(MainTab.RUQYAH_HEALING) }
+            )
+        }
+
+        // 🌟 Dedicated Hadith of the Day Card (Fetched from curated local repository)
+        item {
+            Spacer(modifier = Modifier.height(14.dp))
+            HadithOfTheDayHeroCard(
+                hadith = state.todayHadith,
+                dayOffset = state.todayHadithDayOffset,
+                onPreviousDay = { viewModel.previousDailyHadith() },
+                onNextDay = { viewModel.nextDailyHadith() },
+                onResetToToday = { viewModel.resetDailyHadithToToday() },
+                onPlayAudio = { viewModel.playHadithAudio(state.todayHadith) },
+                onToggleFavorite = { viewModel.toggleFavoriteTodayHadith() },
+                onToggleRead = { viewModel.toggleReadTodayHadith() },
+                onOpenHadithReader = {
+                    viewModel.jumpToHadithCoordinate("${state.todayHadith.collection}:${state.todayHadith.hadithNumber}")
+                    viewModel.setTab(MainTab.HADITH_DUAS)
+                },
+                onAskAi = {
+                    viewModel.setTab(MainTab.AI_GUIDE)
+                    viewModel.sendChatMessage("Can you explain the historical context, narrator background, and practical daily lessons of this Prophetic Hadith: '${state.todayHadith.translation}' (${state.todayHadith.referenceText})?")
+                }
+            )
+        }
+
         item {
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 🌟 Featured Dua of the Day Card (Fetched from local JSON resource)
+            // 🌟 Featured Dua of the Day Card (Fetched from local Room database)
             val context = LocalContext.current
-            val todayDua = remember { DuaOfTheDayRepository.getTodayDua(context) }
+            val todayDua = state.todayDua?.toDailyDuaItem() ?: remember(state.todayDuaDayOffset) { DuaOfTheDayRepository.getTodayDua(context, state.todayDuaDayOffset) }
             val isPlayingDua = state.playingAudioId == todayDua.id
 
             DuaOfTheDayHeroCard(
@@ -661,6 +823,14 @@ fun DashboardScreen(
                 },
                 onExploreAllDuas = {
                     viewModel.openDuaLibrary()
+                },
+                onNext = { viewModel.nextDailyDua() },
+                onPrevious = { viewModel.previousDailyDua() },
+                onToggleFavorite = { viewModel.toggleFavoriteDua(todayDua.id, todayDua.isFavorite) },
+                onPractice = { viewModel.incrementDuaCount(todayDua.id, todayDua.recommendedCount) },
+                onAskAi = {
+                    viewModel.setTab(MainTab.AI_GUIDE)
+                    viewModel.sendChatMessage("Can you explain the spiritual meaning, hadith context, and virtues of this supplication: '${todayDua.title}' (${todayDua.reference})?")
                 }
             )
 
@@ -1128,6 +1298,21 @@ fun DashboardScreen(
             onDismiss = { viewModel.dismissProModuleUnlockPrompt() }
         )
     }
+
+    if (state.asmaUlHusnaState.isDetailDialogOpen && state.asmaUlHusnaState.selectedNameForDetail != null) {
+        val selected = state.asmaUlHusnaState.selectedNameForDetail!!
+        AllahNameDetailDialog(
+            name = selected,
+            isMemorized = state.asmaUlHusnaState.memorizedIds.contains(selected.number),
+            isFavorite = state.asmaUlHusnaState.favoriteIds.contains(selected.number),
+            dhikrCount = state.asmaUlHusnaState.nameDhikrCounters.getOrDefault(selected.number, 0),
+            onDismiss = { viewModel.selectNameForDetail(null) },
+            onPlayPronounce = { viewModel.playNamePronunciation(selected) },
+            onToggleMemorized = { viewModel.toggleNameMemorized(selected.number) },
+            onToggleFavorite = { viewModel.toggleNameFavorite(selected.number) },
+            onIncrementDhikr = { viewModel.incrementNameDhikr(selected.number) }
+        )
+    }
 }
 
 @Composable
@@ -1340,6 +1525,11 @@ fun DuaOfTheDayHeroCard(
     isPlaying: Boolean,
     onPlayAudio: () -> Unit,
     onExploreAllDuas: () -> Unit,
+    onNext: () -> Unit = {},
+    onPrevious: () -> Unit = {},
+    onToggleFavorite: () -> Unit = {},
+    onPractice: () -> Unit = {},
+    onAskAi: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1355,43 +1545,114 @@ fun DuaOfTheDayHeroCard(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Top Row: Badge & Category
+            // Top Row: Badge, Database indicator & Previous/Next Navigation
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = GoldAccent.copy(alpha = 0.18f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Icon(Icons.Default.Stars, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))
+                            Text(
+                                text = "DUA OF THE DAY",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    letterSpacing = 0.8.sp,
+                                    color = EmeraldPrimary
+                                )
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = EmeraldPrimary.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = "Room DB",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            color = EmeraldPrimary,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(
+                        onClick = onPrevious,
+                        modifier = Modifier.size(32.dp).testTag("dua_prev_day_btn")
+                    ) {
+                        Icon(Icons.Default.ChevronLeft, contentDescription = "Previous Dua", tint = EmeraldPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(
+                        onClick = onNext,
+                        modifier = Modifier.size(32.dp).testTag("dua_next_day_btn")
+                    ) {
+                        Icon(Icons.Default.ChevronRight, contentDescription = "Next Dua", tint = EmeraldPrimary, modifier = Modifier.size(20.dp))
+                    }
+                    IconButton(
+                        onClick = onToggleFavorite,
+                        modifier = Modifier.size(32.dp).testTag("dua_fav_btn")
+                    ) {
+                        Icon(
+                            imageVector = if (dua.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Favorite",
+                            tint = if (dua.isFavorite) Color.Red else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            // Category & Practice Pill
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = GoldAccent.copy(alpha = 0.18f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Icon(Icons.Default.Stars, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(15.dp))
-                        Text(
-                            text = "DUA OF THE DAY",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                letterSpacing = 1.sp,
-                                color = EmeraldPrimary
-                            )
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = EmeraldPrimary.copy(alpha = 0.12f)
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
                 ) {
                     Text(
                         text = dua.category,
-                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                        color = EmeraldPrimary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
                     )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (dua.practiceCount >= dua.recommendedCount) GoldAccent.copy(alpha = 0.25f) else EmeraldPrimary.copy(alpha = 0.1f),
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { onPractice() }
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (dua.practiceCount >= dua.recommendedCount) Icons.Default.CheckCircle else Icons.Default.TouchApp,
+                            contentDescription = null,
+                            tint = if (dua.practiceCount >= dua.recommendedCount) GoldAccent else EmeraldPrimary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = "Practice: ${dua.practiceCount}/${dua.recommendedCount}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 11.sp),
+                            color = if (dua.practiceCount >= dua.recommendedCount) GoldAccent else EmeraldPrimary
+                        )
+                    }
                 }
             }
 
@@ -1470,7 +1731,7 @@ fun DuaOfTheDayHeroCard(
                 }
             }
 
-            Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
             // Action Buttons
             Row(
@@ -1496,7 +1757,14 @@ fun DuaOfTheDayHeroCard(
                     Text(if (isPlaying) "Playing" else "Listen Recitation", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = onAskAi,
+                        modifier = Modifier.testTag("ask_ai_dua_btn")
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = "Ask Deen AI", tint = GoldAccent, modifier = Modifier.size(20.dp))
+                    }
+
                     IconButton(
                         onClick = {
                             val clip = ClipData.newPlainText("Dua", "${dua.title}\n\n${dua.arabic}\n\n${dua.transliteration}\n\n${dua.translation}\n\n(${dua.reference})")
@@ -1604,4 +1872,1198 @@ fun HomeGridModuleCard(
         }
     }
 }
+
+@Composable
+fun DashboardSpiritualProgressCard(
+    state: DeenUiState,
+    onOpenProfile: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val progress = remember(state) {
+        com.example.domain.SpiritualAchievementsEngine.computeProgressSummary(state, state.spiritualGoals)
+    }
+    val badges = remember(state) {
+        com.example.domain.SpiritualAchievementsEngine.computeBadges(state, state.spiritualGoals)
+    }
+    val unlockedCount = remember(badges) { badges.count { it.isUnlocked } }
+
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(onClick = onOpenProfile)
+            .testTag("dashboard_spiritual_goals_card"),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header: Title & Vitality Pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = EmeraldPrimary.copy(alpha = 0.15f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = state.userProfile?.avatarId?.let { com.example.domain.model.UserAvatar.fromId(it).emoji } ?: "🌱",
+                                fontSize = 20.sp
+                            )
+                        }
+                    }
+
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(
+                                text = "Spiritual Vitality",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = EmeraldPrimary.copy(alpha = 0.15f)
+                            ) {
+                                Text(
+                                    text = progress.spiritualRankTitle,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = EmeraldPrimary,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                        Text(
+                            text = if (state.userProfile != null) "Assalamu Alaikum, ${state.userProfile.displayName}" else "Track daily Ayahs, Hadith, Salah & Fasting",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Gauge Score badge
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = EmeraldPrimary,
+                    modifier = Modifier.padding(start = 4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "${progress.overallSpiritualVitalityScore}%",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp
+                        )
+                    }
+                }
+            }
+
+            // Linear Progress Bar for overall vitality
+            LinearProgressIndicator(
+                progress = { (progress.overallSpiritualVitalityScore / 100f).coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(RoundedCornerShape(3.dp)),
+                color = EmeraldPrimary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+
+            // 5 Mini Module Indicators Grid / Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                MiniModuleGoalPill(
+                    icon = "📖",
+                    label = "Quran",
+                    progressText = "${progress.quranAyahsReadToday}/${progress.quranAyahsGoal}",
+                    fraction = progress.quranProgressPercentage
+                )
+                MiniModuleGoalPill(
+                    icon = "📜",
+                    label = "Hadith",
+                    progressText = "${progress.hadithsStudiedCount}/${progress.hadithsStudiedGoal}",
+                    fraction = progress.hadithProgressPercentage
+                )
+                MiniModuleGoalPill(
+                    icon = "🤲",
+                    label = "Dua",
+                    progressText = "${progress.duasMemorizedCount}/${progress.duasMemorizedGoal}",
+                    fraction = progress.duaProgressPercentage
+                )
+                MiniModuleGoalPill(
+                    icon = "🕌",
+                    label = "Salah",
+                    progressText = "${progress.salahOfferedToday}/${state.spiritualGoals.dailySalahTarget}",
+                    fraction = progress.salahProgressPercentage
+                )
+                MiniModuleGoalPill(
+                    icon = "🌙",
+                    label = "Fasting",
+                    progressText = "${progress.fastingDaysThisMonth}/${progress.fastingGoalDays}",
+                    fraction = progress.fastingProgressPercentage
+                )
+            }
+
+            // Footer Row: Badges Unlocked & Call to Action
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("🏆", fontSize = 13.sp)
+                    Text(
+                        text = "$unlockedCount/10 Badges Unlocked",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(
+                        text = "Customize Goals",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = EmeraldPrimary
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = EmeraldPrimary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MiniModuleGoalPill(
+    icon: String,
+    label: String,
+    progressText: String,
+    fraction: Float,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        modifier = modifier.width(62.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(icon, fontSize = 14.sp)
+            Text(
+                text = label,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = progressText,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (fraction >= 1f) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
+            )
+            LinearProgressIndicator(
+                progress = { fraction.coerceIn(0f, 1f) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .clip(RoundedCornerShape(1.5.dp)),
+                color = if (fraction >= 1f) GoldAccent else EmeraldPrimary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+fun NamesOfAllahDashboardCard(
+    state: DeenUiState,
+    onPlayAudio: (AllahName) -> Unit,
+    onSelectName: (AllahName) -> Unit,
+    onViewAllNames: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val featuredName = remember { AsmaUlHusnaData.getFeaturedName() }
+    val previewNames = remember { AsmaUlHusnaData.getPreviewNames(8) }
+    val memorizedCount = state.asmaUlHusnaState.memorizedIds.size
+    val currentlyPlaying = state.asmaUlHusnaState.currentlyPlayingNumber
+
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.35f)),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("names_of_allah_dashboard_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            // Header: Title, Subtitle, Audio Badge, and Memorization Pill
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = GoldAccent.copy(alpha = 0.18f),
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = GoldAccent,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    Column {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "99 Names of Allah",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = EmeraldPrimary.copy(alpha = 0.15f)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.VolumeUp,
+                                        contentDescription = null,
+                                        tint = EmeraldPrimary,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Text(
+                                        text = "Audio",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = EmeraldPrimary,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                            }
+                        }
+                        Text(
+                            text = "Asmā' Allāh al-Ḥusnā • 99 Divine Attributes",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Memorization Counter Pill
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+                    border = androidx.compose.foundation.BorderStroke(0.5.dp, GoldAccent.copy(alpha = 0.4f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "$memorizedCount/99",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = if (memorizedCount > 0) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "learned",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            // Featured Name Highlight
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                ),
+                border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.2f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelectName(featuredName) }
+                    .testTag("featured_name_hero_card")
+            ) {
+                Box(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = GoldAccent.copy(alpha = 0.2f)
+                            ) {
+                                Text(
+                                    text = "FEATURED ATTRIBUTE #${featuredName.number}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp
+                                    ),
+                                    color = GoldAccent,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+
+                            val isPlayingThis = currentlyPlaying == featuredName.number
+                            IconButton(
+                                onClick = { onPlayAudio(featuredName) },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isPlayingThis) GoldAccent else EmeraldPrimary.copy(alpha = 0.15f))
+                                    .testTag("play_featured_name_audio_button")
+                            ) {
+                                Icon(
+                                    imageVector = if (isPlayingThis) Icons.Default.GraphicEq else Icons.Default.VolumeUp,
+                                    contentDescription = "Listen to pronunciation",
+                                    tint = if (isPlayingThis) Color.Black else EmeraldPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = featuredName.transliteration,
+                                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.ExtraBold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Text(
+                                    text = featuredName.meaning,
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = featuredName.explanation,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Text(
+                                text = featuredName.arabic,
+                                style = MaterialTheme.typography.headlineMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                ),
+                                textAlign = TextAlign.End
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Quick Preview Carousel (Horizontal Scroll)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Quick Preview",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Swipe to explore →",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
+                ) {
+                    items(previewNames) { name ->
+                        val isPlayingThis = currentlyPlaying == name.number
+                        val isMemorized = state.asmaUlHusnaState.memorizedIds.contains(name.number)
+
+                        Card(
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            ),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isPlayingThis) GoldAccent else if (isMemorized) EmeraldPrimary.copy(alpha = 0.5f) else Color.Transparent
+                            ),
+                            modifier = Modifier
+                                .width(150.dp)
+                                .clickable { onSelectName(name) }
+                                .testTag("preview_name_card_${name.number}")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Surface(
+                                        shape = CircleShape,
+                                        color = EmeraldPrimary.copy(alpha = 0.12f),
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Text(
+                                                text = "${name.number}",
+                                                style = MaterialTheme.typography.labelSmall.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 10.sp,
+                                                    color = EmeraldPrimary
+                                                )
+                                            )
+                                        }
+                                    }
+
+                                    IconButton(
+                                        onClick = { onPlayAudio(name) },
+                                        modifier = Modifier
+                                            .size(26.dp)
+                                            .clip(CircleShape)
+                                            .background(if (isPlayingThis) GoldAccent else EmeraldPrimary.copy(alpha = 0.15f))
+                                            .testTag("play_preview_name_${name.number}")
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isPlayingThis) Icons.Default.GraphicEq else Icons.Default.VolumeUp,
+                                            contentDescription = "Pronounce",
+                                            tint = if (isPlayingThis) Color.Black else EmeraldPrimary,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+
+                                Text(
+                                    text = name.arabic,
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    ),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Text(
+                                    text = name.transliteration,
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1
+                                )
+
+                                Text(
+                                    text = name.meaning,
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Dedicated Link Button to Full Audio-Enabled List
+            Button(
+                onClick = onViewAllNames,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = EmeraldPrimary,
+                    contentColor = Color.White
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("view_all_99_names_button")
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = "Explore All 99 Names (Audio-Enabled)",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HijriAndFastingDashboardCard(
+    state: DeenUiState,
+    onToggleFast: (String) -> Unit,
+    onViewFullCalendar: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cal = state.hijriCalendarState
+    val nextOccasion = remember(cal.currentHijriMonth, cal.currentHijriDay) {
+        HijriCalendarData.getUpcomingSacredOccasion(cal.currentHijriMonth, cal.currentHijriDay)
+    }
+    val daysRemaining = nextOccasion.daysRemaining(cal.currentHijriMonth, cal.currentHijriDay)
+    val fasts = remember(cal.currentHijriMonth) {
+        HijriCalendarData.getSunnahFastsForMonth(cal.currentHijriMonth).take(3)
+    }
+
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.35f)),
+        modifier = modifier.fillMaxWidth().testTag("hijri_dashboard_card")
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(shape = CircleShape, color = EmeraldPrimary.copy(alpha = 0.15f), modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.CalendarMonth, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    Column {
+                        Text("Hijri & Sunnah Fasting", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("${cal.currentHijriDay} ${HijriCalendarData.HIJRI_MONTHS.getOrNull(cal.currentHijriMonth - 1)?.englishName ?: ""} ${cal.currentHijriYear} AH", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Surface(shape = RoundedCornerShape(12.dp), color = GoldAccent.copy(alpha = 0.2f)) {
+                    Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("🔥", fontSize = 11.sp)
+                        Text("${cal.fastingStreakDays}d streak", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold), color = GoldAccent)
+                    }
+                }
+            }
+
+            // Next Occasion Hero Banner
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = EmeraldPrimary.copy(alpha = 0.08f)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.2f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("NEXT SACRED OCCASION", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = EmeraldPrimary)
+                        Text(nextOccasion.title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold))
+                        Text(nextOccasion.arabicTitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("$daysRemaining", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Black, color = EmeraldPrimary))
+                        Text("days left", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+
+            // Quick Sunnah Fast Checklist
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Upcoming Sunnah Fasts", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                fasts.forEach { fast ->
+                    val isDone = cal.completedFastIds.contains(fast.id)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
+                            .clickable { onToggleFast(fast.id) }
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(fast.title, style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold))
+                        Icon(
+                            imageVector = if (isDone) Icons.Default.CheckCircle else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = "Fast Toggle",
+                            tint = if (isDone) EmeraldPrimary else MaterialTheme.colorScheme.outlineVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            // Button
+            Button(
+                onClick = onViewFullCalendar,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                modifier = Modifier.fillMaxWidth().testTag("view_full_hijri_calendar_button")
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Explore 12-Month Calendar & Sacred Days", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MirathCalculatorDashboardCard(
+    state: DeenUiState,
+    onOpenCalculator: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.35f)),
+        modifier = modifier.fillMaxWidth().testTag("mirath_dashboard_card")
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(shape = CircleShape, color = GoldAccent.copy(alpha = 0.2f), modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Calculate, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    Column {
+                        Text("Inheritance (Mirath) Calculator", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Surah An-Nisa 4:11-12 • 4-Madhab Jurisprudence", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Surface(shape = RoundedCornerShape(6.dp), color = EmeraldPrimary.copy(alpha = 0.15f)) {
+                    Text("4 Madhabs", color = EmeraldPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text("Pre-Distribution Deductions Supported:", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold))
+                    Text("1. Funeral Costs (Tajheez) → 2. Unpaid Debts/Mahr → 3. Wasiyyah (Max 1/3) → 4. Heirs Shares", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Button(
+                onClick = onOpenCalculator,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                modifier = Modifier.fillMaxWidth().testTag("open_mirath_calculator_button")
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Calculate Estate Distribution (Hanafi, Maliki, Shafi'i, Hanbali)", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun KhatamPlannerDashboardCard(
+    state: DeenUiState,
+    onAddPages: (Int) -> Unit,
+    onOpenPlanner: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val planner = state.khatamPlannerState
+
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.35f)),
+        modifier = modifier.fillMaxWidth().testTag("khatam_dashboard_card")
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(shape = CircleShape, color = EmeraldPrimary.copy(alpha = 0.15f), modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Book, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    Column {
+                        Text("Khatam Quran Planner", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Target: ${planner.selectedTargetDays} Days • Juz ${planner.currentJuz}", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                Surface(shape = RoundedCornerShape(6.dp), color = GoldAccent.copy(alpha = 0.2f)) {
+                    Text("${(planner.completionPercentage * 100).toInt()}% Done", color = GoldAccent, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+                }
+            }
+
+            // Progress Bar
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("${planner.completedPages} / ${planner.totalQuranPages} Pages read", style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold))
+                    Text("${planner.pagesRemaining} left", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                LinearProgressIndicator(
+                    progress = { planner.completionPercentage },
+                    modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                    color = EmeraldPrimary,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            }
+
+            // Quick log actions
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { onAddPages(1) },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("+1 Page", fontSize = 11.sp)
+                }
+                OutlinedButton(
+                    onClick = { onAddPages(4) },
+                    shape = RoundedCornerShape(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("+4 Pgs (1 Salah)", fontSize = 11.sp)
+                }
+                Button(
+                    onClick = onOpenPlanner,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                    modifier = Modifier.weight(1f).testTag("dashboard_open_khatam_button")
+                ) {
+                    Text("Planner →", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun RuqyahHealingDashboardCard(
+    state: DeenUiState,
+    onPlayAudio: (RuqyahVerse) -> Unit,
+    onOpenRuqyah: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val sampleVerse = remember { RuqyahData.VERSES[0] } // Al-Fatihah
+    val isPlaying = state.ruqyahState.currentlyPlayingVerseId == sampleVerse.id
+
+    Card(
+        shape = RoundedCornerShape(22.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.35f)),
+        modifier = modifier.fillMaxWidth().testTag("ruqyah_dashboard_card")
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Surface(shape = CircleShape, color = GoldAccent.copy(alpha = 0.2f), modifier = Modifier.size(40.dp)) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Healing, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(22.dp))
+                        }
+                    }
+                    Column {
+                        Text("Ruqyah & Spiritual Healing", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Ayat ash-Shifa • Authentic Prophetic Protection", style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                IconButton(
+                    onClick = { onPlayAudio(sampleVerse) },
+                    modifier = Modifier.size(36.dp).clip(CircleShape).background(if (isPlaying) GoldAccent else EmeraldPrimary.copy(alpha = 0.15f))
+                ) {
+                    Icon(
+                        imageVector = if (isPlaying) Icons.Default.GraphicEq else Icons.Default.VolumeUp,
+                        contentDescription = "Listen",
+                        tint = if (isPlaying) Color.Black else EmeraldPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(sampleVerse.title, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                    Text(sampleVerse.arabic, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold), textAlign = TextAlign.End, color = MaterialTheme.colorScheme.primary, modifier = Modifier.fillMaxWidth())
+                    Text(sampleVerse.translation, style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp), color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2)
+                }
+            }
+
+            Button(
+                onClick = onOpenRuqyah,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
+                modifier = Modifier.fillMaxWidth().testTag("open_ruqyah_suite_button")
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Explore All Healing Verses & Prophetic Method", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardSpiritualRemindersCard(
+    state: DeenUiState,
+    viewModel: DeenViewModel
+) {
+    val context = LocalContext.current
+    val notifPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            viewModel.toggleGlobalPrayerAlerts(true, context)
+            viewModel.toggleQuranReminder(true, context)
+            Toast.makeText(context, "Spiritual reminders enabled!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.22f)),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("dashboard_spiritual_reminders_card")
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = EmeraldPrimary.copy(alpha = 0.12f),
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.NotificationsActive,
+                                contentDescription = null,
+                                tint = EmeraldPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    Column {
+                        Text(
+                            text = "Daily Spiritual Reminders",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "Automatic local alerts for Salah & Quran recitation",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = { viewModel.setTab(MainTab.SETTINGS) },
+                    modifier = Modifier.size(32.dp).testTag("dashboard_reminders_settings_btn")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Customize Reminders",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.15f))
+
+            // Row 1: Prayer Time Alerts
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("🕌", fontSize = 18.sp)
+                    Column {
+                        Text(
+                            text = "Prayer Time Alerts",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (state.prayerAlertsEnabled) state.nextScheduledAlertText.ifEmpty { "Active for ${state.selectedCity.name}" } else "Alerts turned off",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = if (state.prayerAlertsEnabled) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(
+                        onClick = {
+                            viewModel.triggerTestPrayerNotification(context, state.prayerSchedule.nextPrayerName)
+                            Toast.makeText(context, "Test Adhan alert fired!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(28.dp).testTag("dashboard_test_prayer_alert_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.VolumeUp,
+                            contentDescription = "Test Prayer Alert",
+                            tint = EmeraldPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Switch(
+                        checked = state.prayerAlertsEnabled,
+                        onCheckedChange = { checked ->
+                            if (checked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                notifPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.toggleGlobalPrayerAlerts(checked, context)
+                            }
+                        },
+                        modifier = Modifier.testTag("dashboard_prayer_alerts_switch")
+                    )
+                }
+            }
+
+            // Row 2: Daily Quran Reading Reminder
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("📖", fontSize = 18.sp)
+                    Column {
+                        Text(
+                            text = "Daily Quran Recitation",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = if (state.quranReminderSettings.enabled)
+                                "${state.quranReminderSettings.formattedTime} • ${state.quranReminderSettings.dailyPagesTarget} pages target"
+                            else
+                                "Daily reading reminder turned off",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = if (state.quranReminderSettings.enabled) GoldAccent else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(
+                        onClick = {
+                            viewModel.triggerTestQuranReminder(context)
+                            Toast.makeText(context, "Test Quran reminder fired!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.size(28.dp).testTag("dashboard_test_quran_reminder_btn")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = "Test Quran Reminder",
+                            tint = GoldAccent,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Switch(
+                        checked = state.quranReminderSettings.enabled,
+                        onCheckedChange = { checked ->
+                            if (checked && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                notifPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                            } else {
+                                viewModel.toggleQuranReminder(checked, context)
+                            }
+                        },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = GoldAccent
+                        ),
+                        modifier = Modifier.testTag("dashboard_quran_reminder_switch")
+                    )
+                }
+            }
+
+            // Footer pills & actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (state.quranReminderSettings.notifyFridayKahf) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = GoldAccent.copy(alpha = 0.12f)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text("✨", fontSize = 11.sp)
+                            Text(
+                                text = "Friday Surah Al-Kahf Alert Active",
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
+                }
+
+                TextButton(
+                    onClick = { viewModel.setTab(MainTab.SETTINGS) },
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "Customize Routine →",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color = EmeraldPrimary
+                    )
+                }
+            }
+        }
+    }
+}
+
+
 

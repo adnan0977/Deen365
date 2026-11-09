@@ -34,6 +34,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.platform.LocalContext
 import com.example.notification.AlertSoundMode
+import com.example.notification.QuranReminderTimePreset
 import com.example.domain.CalculationMethod
 import com.example.domain.DarkModeConfig
 import com.example.ui.components.AdminVideoManagementDialog
@@ -1208,6 +1209,385 @@ fun SettingsScreen(
                         }
                     }
                 }
+            }
+        }
+
+        // Section: Daily Quran Reading Reminders & Friday Surah Al-Kahf
+        item {
+            val context = LocalContext.current
+            var isCustomTimePickerOpen by remember { mutableStateOf(false) }
+            var pickerHour by remember(state.quranReminderSettings.hour) { mutableStateOf(state.quranReminderSettings.hour) }
+            var pickerMinute by remember(state.quranReminderSettings.minute) { mutableStateOf(state.quranReminderSettings.minute) }
+
+            val quranNotifPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { granted ->
+                if (granted) {
+                    viewModel.toggleQuranReminder(true, context)
+                    Toast.makeText(context, "Daily Quran reading reminder enabled!", Toast.LENGTH_SHORT).show()
+                } else {
+                    viewModel.toggleQuranReminder(false, context)
+                    Toast.makeText(context, "Notification permission is required for reminders.", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            Card(
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.35f)),
+                modifier = Modifier.fillMaxWidth().testTag("quran_reading_notifications_settings_card")
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Header & Master Switch
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = GoldAccent.copy(alpha = 0.15f),
+                                modifier = Modifier.size(38.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.MenuBook,
+                                        contentDescription = null,
+                                        tint = GoldAccent,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Column {
+                                Text(
+                                    text = "Daily Quran Reading Reminder",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = if (state.quranReminderSettings.enabled)
+                                        "Scheduled at ${state.quranReminderSettings.formattedTime} (${state.quranReminderSettings.dailyPagesTarget} pages goal)"
+                                    else
+                                        "Reminders currently disabled",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+
+                        Switch(
+                            checked = state.quranReminderSettings.enabled,
+                            onCheckedChange = { checked ->
+                                if (checked && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    quranNotifPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                } else {
+                                    viewModel.toggleQuranReminder(checked, context)
+                                }
+                            },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = GoldAccent
+                            ),
+                            modifier = Modifier.testTag("settings_quran_reminder_toggle")
+                        )
+                    }
+
+                    if (state.quranReminderSettings.enabled && state.nextScheduledQuranReminderText.isNotEmpty()) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = GoldAccent.copy(alpha = 0.08f),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(Icons.Default.AccessAlarms, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))
+                                Text(
+                                    text = state.nextScheduledQuranReminderText,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(visible = state.quranReminderSettings.enabled) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Text(
+                                text = "Reminder Time of Day:",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+
+                            // Preset Pills Grid
+                            val presets = listOf(
+                                QuranReminderTimePreset.AFTER_FAJR,
+                                QuranReminderTimePreset.MID_DAY,
+                                QuranReminderTimePreset.AFTER_ASR,
+                                QuranReminderTimePreset.AFTER_MAGHRIB,
+                                QuranReminderTimePreset.NIGHT,
+                                QuranReminderTimePreset.CUSTOM
+                            )
+
+                            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    presets.take(3).forEach { preset ->
+                                        FilterChip(
+                                            selected = state.quranReminderSettings.preset == preset,
+                                            onClick = {
+                                                if (preset == QuranReminderTimePreset.CUSTOM) {
+                                                    isCustomTimePickerOpen = true
+                                                } else {
+                                                    viewModel.setQuranReminderPreset(preset, context)
+                                                }
+                                            },
+                                            label = { Text(preset.title.split(" ")[0], fontSize = 11.sp, fontWeight = FontWeight.Bold) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = GoldAccent.copy(alpha = 0.2f),
+                                                selectedLabelColor = EmeraldPrimary
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    presets.drop(3).forEach { preset ->
+                                        FilterChip(
+                                            selected = state.quranReminderSettings.preset == preset,
+                                            onClick = {
+                                                if (preset == QuranReminderTimePreset.CUSTOM) {
+                                                    isCustomTimePickerOpen = true
+                                                } else {
+                                                    viewModel.setQuranReminderPreset(preset, context)
+                                                }
+                                            },
+                                            label = {
+                                                Text(
+                                                    if (preset == QuranReminderTimePreset.CUSTOM)
+                                                        "Custom"
+                                                    else
+                                                        preset.title.split(" ")[0],
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = GoldAccent.copy(alpha = 0.2f),
+                                                selectedLabelColor = EmeraldPrimary
+                                            ),
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Daily Reading Target
+                            Text(
+                                text = "Daily Recitation Target:",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                listOf(
+                                    1 to "1 Page",
+                                    4 to "4 Pages",
+                                    10 to "10 Pages",
+                                    20 to "20 Pages (1 Juz)"
+                                ).forEach { (pages, label) ->
+                                    FilterChip(
+                                        selected = state.quranReminderSettings.dailyPagesTarget == pages,
+                                        onClick = { viewModel.setQuranReminderPagesTarget(pages, context) },
+                                        label = { Text(label, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = EmeraldPrimary.copy(alpha = 0.15f),
+                                            selectedLabelColor = EmeraldPrimary
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                            // Friday Surah Al-Kahf Toggle
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.AutoStories,
+                                        contentDescription = null,
+                                        tint = EmeraldPrimary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            text = "Surah Al-Kahf Friday Sunnah",
+                                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            text = "Weekly Friday 9:00 AM notification to read Surah Al-Kahf",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+
+                                Switch(
+                                    checked = state.quranReminderSettings.notifyFridayKahf,
+                                    onCheckedChange = { viewModel.toggleFridayKahfReminder(it, context) },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = Color.White,
+                                        checkedTrackColor = EmeraldPrimary
+                                    ),
+                                    modifier = Modifier.testTag("friday_kahf_reminder_toggle")
+                                )
+                            }
+
+                            // Test Quran Notification Button
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.triggerTestQuranReminder(context)
+                                        Toast.makeText(context, "Test Quran reminder dispatched!", Toast.LENGTH_SHORT).show()
+                                    },
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("settings_test_quran_reminder_btn")
+                                ) {
+                                    Icon(Icons.Default.MenuBook, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Dispatch Test Quran Reading Reminder", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Custom Time Picker Dialog
+            if (isCustomTimePickerOpen) {
+                AlertDialog(
+                    onDismissRequest = { isCustomTimePickerOpen = false },
+                    title = {
+                        Text(
+                            text = "Set Custom Quran Reminder Time",
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    },
+                    text = {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "Choose the exact hour and minute for your daily Quran recitation:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+
+                            // Hour and Minute Controls
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                // Hour Picker
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    IconButton(onClick = { pickerHour = (pickerHour + 1) % 24 }) {
+                                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Hour Up")
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = EmeraldPrimary.copy(alpha = 0.15f),
+                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = String.format("%02d", pickerHour),
+                                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = EmeraldPrimary,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                    IconButton(onClick = { pickerHour = if (pickerHour > 0) pickerHour - 1 else 23 }) {
+                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Hour Down")
+                                    }
+                                    Text("Hour (24h)", style = MaterialTheme.typography.labelSmall)
+                                }
+
+                                Text(":", style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold))
+
+                                // Minute Picker
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    IconButton(onClick = { pickerMinute = (pickerMinute + 5) % 60 }) {
+                                        Icon(Icons.Default.KeyboardArrowUp, contentDescription = "Minute Up")
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = EmeraldPrimary.copy(alpha = 0.15f),
+                                        modifier = Modifier.padding(horizontal = 8.dp)
+                                    ) {
+                                        Text(
+                                            text = String.format("%02d", pickerMinute),
+                                            style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.Bold),
+                                            color = EmeraldPrimary,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                        )
+                                    }
+                                    IconButton(onClick = { pickerMinute = if (pickerMinute >= 5) pickerMinute - 5 else 55 }) {
+                                        Icon(Icons.Default.KeyboardArrowDown, contentDescription = "Minute Down")
+                                    }
+                                    Text("Minute", style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                viewModel.setQuranReminderCustomTime(pickerHour, pickerMinute, context)
+                                isCustomTimePickerOpen = false
+                                Toast.makeText(context, "Quran reminder set for ${String.format("%02d:%02d", pickerHour, pickerMinute)}", Toast.LENGTH_SHORT).show()
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary)
+                        ) {
+                            Text("Set Time")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { isCustomTimePickerOpen = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                )
             }
         }
 

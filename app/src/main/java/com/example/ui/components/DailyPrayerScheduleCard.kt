@@ -33,6 +33,7 @@ import com.example.domain.AsrJuristicMethod
 import com.example.domain.CalculationMethod
 import com.example.domain.CityPreset
 import com.example.domain.PrayerSchedule
+import com.example.domain.PrayerTimeCalculator
 import com.example.ui.theme.EmeraldAccent
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.EmeraldPrimaryVariant
@@ -93,9 +94,22 @@ fun DailyPrayerScheduleCard(
         }
     }
 
+    // Live 1-second dynamic countdown ticker
+    var currentTimeMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(schedule) {
+        while (true) {
+            currentTimeMs = System.currentTimeMillis()
+            kotlinx.coroutines.delay(1000L)
+        }
+    }
+    val liveCountdown = remember(schedule, currentTimeMs) {
+        PrayerTimeCalculator.getLiveCountdown(schedule, currentTimeMs)
+    }
+
     val prayerItems = remember(
         schedule,
         state.prayerRecord,
+        liveCountdown,
         state.prayerAlertsEnabled,
         state.notifyFajr,
         state.notifySunrise,
@@ -419,29 +433,29 @@ fun DailyPrayerScheduleCard(
 
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = schedule.nextPrayerName,
+                                text = liveCountdown.nextPrayerName,
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                             )
                             Text(
-                                text = "Starts in ${schedule.timeRemainingNextPrayer}",
-                                style = MaterialTheme.typography.bodyMedium.copy(color = GoldLight)
+                                text = "Starts in ${liveCountdown.formattedHMS} (${liveCountdown.nextPrayerTimeFormatted})",
+                                style = MaterialTheme.typography.bodyMedium.copy(color = GoldLight, fontWeight = FontWeight.SemiBold)
                             )
                         }
 
                         // Right: Suhoor/Iftar countdown summary
                         Column(horizontalAlignment = Alignment.End) {
                             Text(
-                                text = if (schedule.isFastingActive) "Iftar at ${schedule.iftar}" else "Suhoor ends ${schedule.suhoorEnd}",
+                                text = "${liveCountdown.fastingCountdownLabel} ${liveCountdown.fastingCountdownHMS}",
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
                                 )
                             )
                             Text(
-                                text = if (schedule.isFastingActive) "${schedule.timeRemainingIftar} remaining" else "Dawn: ${schedule.fajr}",
+                                text = "Current: ${liveCountdown.currentPrayerName}",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = Color.White.copy(alpha = 0.8f)
                                 )

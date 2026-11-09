@@ -203,12 +203,89 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
                 }
             }
 
+            PrayerNotificationHelper.ACTION_QURAN_REMINDER -> {
+                val pagesTarget = intent.getIntExtra(PrayerNotificationHelper.EXTRA_PAGES_TARGET, 4)
+                val notificationId = intent.getIntExtra(PrayerNotificationHelper.EXTRA_NOTIFICATION_ID, PrayerNotificationHelper.QURAN_REMINDER_REQ_CODE)
+
+                PrayerNotificationHelper.sendQuranReminderNotification(
+                    context = context,
+                    pagesTarget = pagesTarget,
+                    notificationId = notificationId
+                )
+
+                // Reschedule for next day (24 hours later)
+                rescheduleNextQuranOccurrence(context, pagesTarget, notificationId)
+            }
+
+            PrayerNotificationHelper.ACTION_FRIDAY_KAHF_REMINDER -> {
+                val notificationId = intent.getIntExtra(PrayerNotificationHelper.EXTRA_NOTIFICATION_ID, PrayerNotificationHelper.QURAN_KAHF_REQ_CODE)
+
+                PrayerNotificationHelper.sendFridayKahfNotification(
+                    context = context,
+                    notificationId = notificationId
+                )
+
+                // Reschedule for next Friday (7 days later)
+                rescheduleNextFridayKahfOccurrence(context, notificationId)
+            }
+
+            PrayerNotificationHelper.ACTION_MARK_QURAN_READ -> {
+                val pagesTarget = intent.getIntExtra(PrayerNotificationHelper.EXTRA_PAGES_TARGET, 4)
+                val notificationId = intent.getIntExtra(PrayerNotificationHelper.EXTRA_NOTIFICATION_ID, PrayerNotificationHelper.QURAN_REMINDER_REQ_CODE)
+
+                // Cancel the notification
+                val manager = NotificationManagerCompat.from(context)
+                manager.cancel(notificationId)
+
+                // Post confirmation
+                PrayerNotificationHelper.sendQuranReadConfirmation(
+                    context = context,
+                    pagesAdded = pagesTarget,
+                    notificationId = notificationId
+                )
+            }
+
+            PrayerNotificationHelper.ACTION_SNOOZE_QURAN -> {
+                val pagesTarget = intent.getIntExtra(PrayerNotificationHelper.EXTRA_PAGES_TARGET, 4)
+                val notificationId = intent.getIntExtra(PrayerNotificationHelper.EXTRA_NOTIFICATION_ID, PrayerNotificationHelper.QURAN_REMINDER_REQ_CODE)
+
+                val manager = NotificationManagerCompat.from(context)
+                manager.cancel(notificationId)
+
+                // Snooze for 15 minutes
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+                if (alarmManager != null) {
+                    val snoozeMillis = System.currentTimeMillis() + 15 * 60 * 1000L
+                    val alertIntent = Intent(context, PrayerNotificationReceiver::class.java).apply {
+                        this.action = PrayerNotificationHelper.ACTION_QURAN_REMINDER
+                        putExtra(PrayerNotificationHelper.EXTRA_PAGES_TARGET, pagesTarget)
+                        putExtra(PrayerNotificationHelper.EXTRA_NOTIFICATION_ID, notificationId)
+                    }
+
+                    val pendingIntent = PendingIntent.getBroadcast(
+                        context,
+                        notificationId + 50,
+                        alertIntent,
+                        PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+                    )
+
+                    try {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeMillis, pendingIntent)
+                        } else {
+                            alarmManager.setExact(AlarmManager.RTC_WAKEUP, snoozeMillis, pendingIntent)
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_TIMEZONE_CHANGED,
             Intent.ACTION_TIME_CHANGED,
             "com.example.deen365.ACTION_RESCHEDULE_ALL" -> {
                 // Device rebooted or time zone shifted: recalculate schedule from location and restore alarms
                 PrayerNotificationSchedulerService.startScheduling(context, forceGps = true)
+                PrayerNotificationHelper.scheduleDailyQuranReminder(context)
             }
         }
     }
@@ -279,6 +356,68 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
             } else {
                 alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun rescheduleNextQuranOccurrence(
+        context: Context,
+        pagesTarget: Int,
+        notificationId: Int
+    ) {
+        val settings = PrayerNotificationHelper.getQuranReminderSettings(context)
+        if (!settings.enabled) return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val nextDayMillis = System.currentTimeMillis() + 24 * 60 * 60 * 1000L
+
+        val nextIntent = Intent(context, PrayerNotificationReceiver::class.java).apply {
+            action = PrayerNotificationHelper.ACTION_QURAN_REMINDER
+            putExtra(PrayerNotificationHelper.EXTRA_PAGES_TARGET, pagesTarget)
+            putExtra(PrayerNotificationHelper.EXTRA_NOTIFICATION_ID, notificationId)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            nextIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun rescheduleNextFridayKahfOccurrence(
+        context: Context,
+        notificationId: Int
+    ) {
+        val settings = PrayerNotificationHelper.getQuranReminderSettings(context)
+        if (!settings.enabled || !settings.notifyFridayKahf) return
+        val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        val nextWeekMillis = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000L
+
+        val nextIntent = Intent(context, PrayerNotificationReceiver::class.java).apply {
+            action = PrayerNotificationHelper.ACTION_FRIDAY_KAHF_REMINDER
+            putExtra(PrayerNotificationHelper.EXTRA_NOTIFICATION_ID, notificationId)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            context,
+            notificationId,
+            nextIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
+        )
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextWeekMillis, pendingIntent)
+            } else {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextWeekMillis, pendingIntent)
             }
         } catch (_: Exception) {}
     }

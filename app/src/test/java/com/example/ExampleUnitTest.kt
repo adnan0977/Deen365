@@ -239,5 +239,269 @@ class ExampleUnitTest {
         assertEquals("Daily Routine", sampleDua.customFolder)
         assertEquals("Recite every morning after Fajr", sampleDua.userNote)
     }
+
+    @Test
+    fun testMirathCalculatorEstateAndShares() {
+        val liabilities = com.example.data.model.EstateLiabilities(
+            grossEstate = 100_000.0,
+            funeralExpenses = 2_000.0,
+            debtsOwed = 8_000.0,
+            wasiyyahBequest = 10_000.0
+        )
+        // Net after debts = 100,000 - 2,000 - 8,000 = 90,000; wasiyyah (10,000 <= 30,000) -> Net = 80,000
+        assertEquals(80_000.0, liabilities.netDistributableEstate, 0.01)
+
+        // Case: Deceased Male, leaving Wife (1), Sons (1), Daughters (1), Parents deceased
+        val heirs = com.example.data.model.HeirCounts(
+            wifeCount = 1,
+            sonsCount = 1,
+            daughtersCount = 1,
+            fatherAlive = false,
+            motherAlive = false
+        )
+        val result = com.example.data.model.MirathCalculator.calculate(
+            gender = com.example.data.model.DeceasedGender.MALE,
+            liabilities = liabilities,
+            heirs = heirs,
+            madhab = com.example.data.model.Madhab.HANAFI
+        )
+
+        assertTrue(result.shares.isNotEmpty())
+        // Wife should receive 1/8 of 80,000 = 10,000
+        val wifeShare = result.shares.find { it.heirId == "wives" }
+        assertNotNull(wifeShare)
+        assertEquals(10_000.0, wifeShare!!.totalAmount, 0.5)
+
+        // Remaining 70,000 is split 2:1 between son (2 parts) and daughter (1 part) -> 3 parts total
+        val sonShare = result.shares.find { it.heirId == "sons" }
+        val daughterShare = result.shares.find { it.heirId == "daughters_asabah" }
+        assertNotNull(sonShare)
+        assertNotNull(daughterShare)
+        assertEquals(70_000.0 * 2.0 / 3.0, sonShare!!.totalAmount, 0.5)
+        assertEquals(70_000.0 * 1.0 / 3.0, daughterShare!!.totalAmount, 0.5)
+
+        // Total distributed should equal net estate
+        assertEquals(liabilities.netDistributableEstate, result.totalDistributedAmount, 1.0)
+    }
+
+    @Test
+    fun testHijriCalendarDataIntegrity() {
+        val months = com.example.data.model.HijriCalendarData.HIJRI_MONTHS
+        assertEquals(12, months.size)
+        assertEquals("Muharram", months[0].englishName)
+        assertEquals("Dhul Hijjah", months[11].englishName)
+
+        val occasions = com.example.data.model.HijriCalendarData.SACRED_OCCASIONS
+        assertTrue("Should have sacred Islamic occasions", occasions.size >= 8)
+        for (occ in occasions) {
+            assertTrue(occ.title.isNotBlank())
+            assertTrue(occ.arabicTitle.isNotBlank())
+            assertTrue(occ.virtues.isNotBlank())
+        }
+
+        val sunnahDays = com.example.data.model.HijriCalendarData.getSunnahFastsForMonth(9)
+        assertTrue("Should have recommended Sunnah fast days for Ramadan/Month", sunnahDays.isNotEmpty())
+        for (fast in sunnahDays) {
+            assertTrue(fast.title.isNotBlank())
+            assertTrue(fast.propheticVirtue.isNotBlank())
+        }
+    }
+
+    @Test
+    fun testHalalFoodGuideDataAndSearch() {
+        val additives = com.example.data.model.HalalFoodData.ALL_E_NUMBERS
+        assertTrue("Should have curated list of E-numbers", additives.isNotEmpty())
+
+        // Verify status distribution
+        val halalCount = additives.count { it.status == com.example.data.model.HalalStatus.HALAL }
+        val haramCount = additives.count { it.status == com.example.data.model.HalalStatus.HARAM }
+        val mushboohCount = additives.count { it.status == com.example.data.model.HalalStatus.MUSHBOOH }
+        assertTrue("Should contain Halal additives", halalCount > 0)
+        assertTrue("Should contain Haram additives", haramCount > 0)
+        assertTrue("Should contain Mushbooh additives", mushboohCount > 0)
+
+        // Test search query matching
+        val gelatinMatch = additives.filter {
+            it.code.contains("E441", ignoreCase = true) || it.name.contains("Gelatin", ignoreCase = true)
+        }
+        assertTrue("Should find Gelatin E441", gelatinMatch.isNotEmpty())
+        assertEquals(com.example.data.model.HalalStatus.MUSHBOOH, gelatinMatch[0].status)
+    }
+
+    @Test
+    fun testHaramainLiveChannelsAndData() {
+        val channels = com.example.data.model.HaramainLiveData.CHANNELS
+        assertEquals(2, channels.size)
+
+        val makkahChannels = channels.filter { it.mosque == com.example.data.model.HolyMosque.MAKKAH_HARAM }
+        val madinahChannels = channels.filter { it.mosque == com.example.data.model.HolyMosque.MADINAH_NABAWI }
+        assertEquals(1, makkahChannels.size)
+        assertEquals(1, madinahChannels.size)
+
+        for (channel in channels) {
+            assertTrue(channel.title.isNotBlank())
+            assertTrue(channel.streamWebUrl.isNotBlank())
+        }
+    }
+
+    @Test
+    fun testKhatamPlannerPacingCalculations() {
+        val presets = com.example.data.model.KhatamPlannerData.PRESETS
+        assertEquals(4, presets.size)
+
+        val preset30 = presets.find { it.targetDays == 30 }
+        assertNotNull(preset30)
+        assertEquals(30, preset30!!.targetDays)
+        assertEquals(20.1, preset30.pagesPerDay, 0.1)
+        assertEquals(4.0, preset30.pagesPerPrayer, 0.1)
+
+        // Dua Khatm Quran
+        val duaAr = com.example.data.model.KhatamPlannerData.KHATM_AL_QURAN_DUA_ARABIC
+        val duaEn = com.example.data.model.KhatamPlannerData.KHATM_AL_QURAN_DUA_TRANSLATION
+        assertTrue(duaAr.isNotBlank())
+        assertTrue(duaEn.isNotBlank())
+    }
+
+    @Test
+    fun testRuqyahSpiritualHealingVersesAndPropheticSteps() {
+        val verses = com.example.data.model.RuqyahData.VERSES
+        assertTrue("Should contain Ruqyah verses", verses.size >= 5)
+
+        // Must include Al-Fatihah, Ayat al-Kursi, Al-Mu'awwidhat
+        assertTrue(verses.any { it.title.contains("Fatihah", ignoreCase = true) })
+        assertTrue(verses.any { it.title.contains("Kursi", ignoreCase = true) })
+        assertTrue(verses.any { it.title.contains("Mu'awwidhat", ignoreCase = true) })
+
+        val steps = com.example.data.model.RuqyahData.PROPHETIC_STEPS
+        assertEquals(4, steps.size)
+        for (step in steps) {
+            assertTrue(step.title.isNotBlank())
+            assertTrue(step.hadithProof.isNotBlank())
+        }
+    }
+
+    @Test
+    fun testBabyNamesDataAndMeaningIntegrity() {
+        val names = com.example.data.model.BabyNamesData.ALL_NAMES
+        assertTrue("Should have extensive curated baby names", names.isNotEmpty())
+
+        val boysNames = names.filter { it.gender == com.example.data.model.BabyGender.BOY }
+        val girlsNames = names.filter { it.gender == com.example.data.model.BabyGender.GIRL }
+        assertTrue("Should have boy names", boysNames.isNotEmpty())
+        assertTrue("Should have girl names", girlsNames.isNotEmpty())
+
+        for (name in names) {
+            assertTrue(name.name.isNotBlank())
+            assertTrue(name.arabic.isNotBlank())
+            assertTrue(name.meaning.isNotBlank())
+            assertTrue(name.origin.isNotBlank())
+        }
+    }
+
+    @Test
+    fun testPrayerNotificationSettingsAndChannels() {
+        val settings = com.example.notification.PrayerNotificationSettings(
+            alertsEnabled = true,
+            notifyFajr = true,
+            notifySunrise = false,
+            notifyDhuhr = true,
+            notifyAsr = true,
+            notifyMaghrib = true,
+            notifyIsha = true,
+            notifySunsetFastingReminder = true,
+            reminderOffsetMinutes = 5,
+            soundMode = com.example.notification.AlertSoundMode.FULL_ADHAN
+        )
+
+        assertTrue(settings.alertsEnabled)
+        assertTrue(settings.notifyFajr)
+        assertFalse(settings.notifySunrise)
+        assertEquals(5, settings.reminderOffsetMinutes)
+        assertEquals(com.example.notification.AlertSoundMode.FULL_ADHAN, settings.soundMode)
+
+        // Verify channel IDs
+        assertEquals("prayer_alerts_channel", com.example.notification.PrayerNotificationHelper.CHANNEL_ID)
+        assertEquals("prayer_confirmation_channel", com.example.notification.PrayerNotificationHelper.CHANNEL_CONFIRMATION_ID)
+        assertEquals("fasting_completion_channel", com.example.notification.PrayerNotificationHelper.CHANNEL_FASTING_ID)
+        assertEquals("quran_daily_reminders_channel", com.example.notification.PrayerNotificationHelper.CHANNEL_QURAN_ID)
+    }
+
+    @Test
+    fun testQuranReminderSettingsAndPresets() {
+        val defaultSettings = com.example.notification.QuranReminderSettings()
+        assertTrue(defaultSettings.enabled)
+        assertEquals(com.example.notification.QuranReminderTimePreset.NIGHT, defaultSettings.preset)
+        assertEquals(21, defaultSettings.hour)
+        assertEquals(30, defaultSettings.minute)
+        assertEquals(4, defaultSettings.dailyPagesTarget)
+        assertTrue(defaultSettings.notifyFridayKahf)
+        assertTrue(defaultSettings.formattedTime.isNotBlank())
+
+        // Test custom preset
+        val fajrPreset = com.example.notification.QuranReminderTimePreset.AFTER_FAJR
+        assertEquals(6, fajrPreset.hour)
+        assertEquals(0, fajrPreset.minute)
+        assertTrue(fajrPreset.title.contains("Fajr", ignoreCase = true))
+
+        val customSettings = defaultSettings.copy(
+            preset = com.example.notification.QuranReminderTimePreset.CUSTOM,
+            hour = 8,
+            minute = 15,
+            dailyPagesTarget = 10
+        )
+        assertEquals(8, customSettings.hour)
+        assertEquals(15, customSettings.minute)
+        assertEquals(10, customSettings.dailyPagesTarget)
+        assertTrue(customSettings.formattedTime.contains("08:15") || customSettings.formattedTime.contains("8:15"))
+    }
+
+    @Test
+    fun testNotificationIntentActionsAndConstants() {
+        assertEquals("com.example.deen365.ACTION_PRAYER_ALERT", com.example.notification.PrayerNotificationHelper.ACTION_PRAYER_ALERT)
+        assertEquals("com.example.deen365.ACTION_MARK_PRAYED", com.example.notification.PrayerNotificationHelper.ACTION_MARK_PRAYED)
+        assertEquals("com.example.deen365.ACTION_SNOOZE_PRAYER", com.example.notification.PrayerNotificationHelper.ACTION_SNOOZE_PRAYER)
+        assertEquals("com.example.deen365.ACTION_FASTING_REMINDER", com.example.notification.PrayerNotificationHelper.ACTION_FASTING_REMINDER)
+        assertEquals("com.example.deen365.ACTION_LOG_FAST_COMPLETED", com.example.notification.PrayerNotificationHelper.ACTION_LOG_FAST_COMPLETED)
+        assertEquals("com.example.deen365.ACTION_QURAN_REMINDER", com.example.notification.PrayerNotificationHelper.ACTION_QURAN_REMINDER)
+        assertEquals("com.example.deen365.ACTION_MARK_QURAN_READ", com.example.notification.PrayerNotificationHelper.ACTION_MARK_QURAN_READ)
+        assertEquals("com.example.deen365.ACTION_SNOOZE_QURAN", com.example.notification.PrayerNotificationHelper.ACTION_SNOOZE_QURAN)
+        assertEquals("com.example.deen365.ACTION_FRIDAY_KAHF_REMINDER", com.example.notification.PrayerNotificationHelper.ACTION_FRIDAY_KAHF_REMINDER)
+    }
+
+    @Test
+    fun testHadithOfTheDayRepositoryAndItemMapping() {
+        // Test deterministic selection
+        val todayHadith = com.example.data.repository.HadithOfTheDayRepository.getTodayHadithSync(0)
+        assertNotNull(todayHadith)
+        assertTrue("Arabic text must not be empty", todayHadith.arabicText.isNotBlank())
+        assertTrue("Translation must not be empty", todayHadith.translation.isNotBlank())
+        assertTrue("Collection name must not be empty", todayHadith.collectionName.isNotBlank())
+        assertTrue("Reference text must contain collection and number", todayHadith.referenceText.contains("#${todayHadith.hadithNumber}"))
+        assertTrue("Practical lesson must not be empty", todayHadith.practicalLesson.isNotBlank())
+
+        // Test offset navigation gives valid items
+        val nextDayHadith = com.example.data.repository.HadithOfTheDayRepository.getTodayHadithSync(1)
+        assertNotNull(nextDayHadith)
+        assertTrue(nextDayHadith.translation.isNotBlank())
+
+        val prevDayHadith = com.example.data.repository.HadithOfTheDayRepository.getTodayHadithSync(-1)
+        assertNotNull(prevDayHadith)
+        assertTrue(prevDayHadith.translation.isNotBlank())
+
+        // Test practical lesson derivation for key themes
+        val testEntity = com.example.data.local.HadithEntity(
+            collection = "nawawi",
+            bookNumber = 1,
+            chapterName = "Actions by Intentions",
+            hadithNumber = 1,
+            arabicText = "إِنَّمَا الأَعْمَالُ بِالنِّيَّاتِ",
+            translation = "Actions are judged by intentions",
+            narrator = "Umar ibn Al-Khattab (RA)",
+            grade = "Sahih"
+        )
+        val lesson = com.example.data.repository.HadithOfTheDayRepository.derivePracticalLesson(testEntity)
+        assertTrue("Lesson should mention intentions", lesson.contains("intention", ignoreCase = true))
+    }
 }
+
 

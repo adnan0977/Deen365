@@ -40,6 +40,17 @@ fun BottomMenuCustomizerDialog(
         MainTab.COMMUNITY,
         MainTab.INTERACTIVE_LEARNING,
         MainTab.SAHABA_BIOGRAPHIES,
+        MainTab.ZAKAT,
+        MainTab.ASMA_UL_HUSNA,
+        MainTab.HAJJ_UMRAH,
+        MainTab.QADA_SALAH,
+        MainTab.INHERITANCE_CALCULATOR,
+        MainTab.HIJRI_CALENDAR,
+        MainTab.HALAL_GUIDE,
+        MainTab.HARAMAIN_LIVE,
+        MainTab.KHATAM_PLANNER,
+        MainTab.RUQYAH_HEALING,
+        MainTab.BABY_NAMES,
         MainTab.SETTINGS,
         MainTab.FASTING,
         MainTab.TASBIH,
@@ -66,6 +77,17 @@ fun BottomMenuCustomizerDialog(
         MainTab.COMMUNITY -> "Community"
         MainTab.INTERACTIVE_LEARNING -> "Academy"
         MainTab.SAHABA_BIOGRAPHIES -> "Sahaba"
+        MainTab.ZAKAT -> "Zakat"
+        MainTab.ASMA_UL_HUSNA -> "99 Names"
+        MainTab.HAJJ_UMRAH -> "Hajj/Umrah"
+        MainTab.QADA_SALAH -> "Qada Tracker"
+        MainTab.INHERITANCE_CALCULATOR -> "Mirath"
+        MainTab.HIJRI_CALENDAR -> "Hijri Cal"
+        MainTab.HALAL_GUIDE -> "Halal Guide"
+        MainTab.HARAMAIN_LIVE -> "Haramain"
+        MainTab.KHATAM_PLANNER -> "Khatam"
+        MainTab.RUQYAH_HEALING -> "Ruqyah"
+        MainTab.BABY_NAMES -> "Baby Names"
         MainTab.NAMAZ_FASTING -> "Namaz"
         MainTab.SETTINGS -> "Settings"
     }

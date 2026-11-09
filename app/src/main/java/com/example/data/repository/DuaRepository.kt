@@ -88,4 +88,22 @@ class DuaRepository(
     fun getMemorizedCount(): Flow<Int> = duaDao.getMemorizedDuasCount()
 
     fun getFavoriteCount(): Flow<Int> = duaDao.getFavoriteDuasCount()
+
+    suspend fun getDailyDuaFromDb(dayOffset: Int = 0): DuaEntity? = withContext(Dispatchers.IO) {
+        val count = duaDao.getDuasCount()
+        if (count == 0) {
+            seedDuasIfEmpty()
+        }
+        val allDuas = duaDao.getAllDuasDirect()
+        if (allDuas.isNotEmpty()) {
+            val calendar = java.util.Calendar.getInstance()
+            val dayOfYear = calendar.get(java.util.Calendar.DAY_OF_YEAR)
+            val year = calendar.get(java.util.Calendar.YEAR)
+            val dayHash = (dayOfYear + year * 365 + dayOffset)
+            val index = Math.floorMod(dayHash, allDuas.size)
+            allDuas[index]
+        } else {
+            null
+        }
+    }
 }

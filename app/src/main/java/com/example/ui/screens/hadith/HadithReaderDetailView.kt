@@ -354,6 +354,21 @@ fun HadithReaderDetailView(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
+                        // Inline Sunnah.com Sanad Chain Preview Ribbon
+                        val sanadChain = remember(hadith.collection, hadith.hadithNumber) {
+                            com.example.data.seed.SanadChainSeedData.getSanadForHadith(hadith.collection, hadith.hadithNumber)
+                        }
+                        com.example.ui.components.hadith.MiniSanadPreviewRibbon(
+                            chain = sanadChain,
+                            onOpenFullSanad = {
+                                if (onOpenSanadChain != null) {
+                                    onOpenSanadChain(hadith)
+                                } else {
+                                    onOpenGlossary()
+                                }
+                            }
+                        )
+
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(16.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -367,10 +382,10 @@ fun HadithReaderDetailView(
                                 modifier = Modifier.clickable { onOpenGlossary() }
                             )
                             Text(
-                                text = "Narration Chain",
+                                text = "Visual Sanad Chain",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = MaterialTheme.colorScheme.primary,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold
                                 ),
                                 modifier = Modifier
                                     .testTag("narration_chain_btn_${hadith.hadithNumber}")

@@ -7,6 +7,7 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import com.example.domain.model.SpiritualGoals
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -21,7 +22,11 @@ data class UserProfile(
     val displayName: String = "",
     val role: String = "normal", // "normal", "subscriber", "admin"
     val subscriptionPlan: String = "Free",
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val avatarId: String = "avatar_mosque",
+    val spiritualIntentionBio: String = "Seeking closeness to Allah through continuous learning and worship",
+    val spiritualGoals: SpiritualGoals = SpiritualGoals(),
+    val unlockedBadgeIds: List<String> = emptyList()
 )
 
 data class SubscriptionPlanItem(
@@ -264,6 +269,71 @@ class UserRepository(
                 )
                 onSuccess()
             }
+        }
+    }
+
+    fun updateUserProfileDetails(
+        displayName: String,
+        avatarId: String,
+        bio: String,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val user = auth.currentUser
+        val updated = (_userProfile.value ?: UserProfile()).copy(
+            displayName = displayName.ifBlank { "Believer" },
+            avatarId = avatarId,
+            spiritualIntentionBio = bio
+        )
+        _userProfile.value = updated
+
+        if (user != null) {
+            scope.launch {
+                try {
+                    val update = UserProfileChangeRequest.Builder()
+                        .setDisplayName(displayName.trim())
+                        .build()
+                    user.updateProfile(update).await()
+
+                    firestore.collection("users").document(user.uid)
+                        .set(updated, SetOptions.merge())
+                        .await()
+                    onSuccess()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error updating user details in Firestore: ${e.message}")
+                    onSuccess() // Optimistic local success
+                }
+            }
+        } else {
+            onSuccess()
+        }
+    }
+
+    fun updateSpiritualGoals(
+        goals: SpiritualGoals,
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
+    ) {
+        val user = auth.currentUser
+        val updated = (_userProfile.value ?: UserProfile()).copy(
+            spiritualGoals = goals
+        )
+        _userProfile.value = updated
+
+        if (user != null) {
+            scope.launch {
+                try {
+                    firestore.collection("users").document(user.uid)
+                        .update("spiritualGoals", goals)
+                        .await()
+                    onSuccess()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error updating goals in Firestore: ${e.message}")
+                    onSuccess() // Optimistic local success
+                }
+            }
+        } else {
+            onSuccess()
         }
     }
 

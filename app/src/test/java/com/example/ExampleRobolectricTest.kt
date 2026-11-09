@@ -56,6 +56,60 @@ class ExampleRobolectricTest {
     }
 
     @Test
+    fun testPrayerCalculationForGpsCoordinates() {
+        val schedule = PrayerTimeCalculator.calculateScheduleForCoordinates(
+            latitude = 24.8607,
+            longitude = 67.0011,
+            timezone = 5.0,
+            cityName = "Karachi GPS",
+            isUsingGpsLocation = true
+        )
+        assertNotNull(schedule.fajr)
+        assertNotNull(schedule.dhuhr)
+        assertNotNull(schedule.asr)
+        assertNotNull(schedule.maghrib)
+        assertNotNull(schedule.isha)
+        assertTrue(schedule.fajrTimestamp > 0L)
+        assertTrue(schedule.dhuhrTimestamp > 0L)
+        assertTrue(schedule.asrTimestamp > 0L)
+        assertTrue(schedule.maghribTimestamp > 0L)
+        assertTrue(schedule.ishaTimestamp > 0L)
+        assertTrue(schedule.isUsingGpsLocation)
+        assertEquals("Karachi GPS", schedule.cityName)
+    }
+
+    @Test
+    fun testFormatCoordinates() {
+        val formatted = PrayerTimeCalculator.formatCoordinates(24.8607, 67.0011)
+        assertTrue(formatted.contains("24.8607° N"))
+        assertTrue(formatted.contains("67.0011° E"))
+
+        val formattedSouthWest = PrayerTimeCalculator.formatCoordinates(-33.8688, -71.2093)
+        assertTrue(formattedSouthWest.contains("33.8688° S"))
+        assertTrue(formattedSouthWest.contains("71.2093° W"))
+    }
+
+    @Test
+    fun testLivePrayerCountdownCalculation() {
+        val schedule = PrayerTimeCalculator.calculateScheduleForCoordinates(
+            latitude = 21.4225,
+            longitude = 39.8262,
+            timezone = 3.0,
+            cityName = "Makkah"
+        )
+        // Simulate a fixed time: 30 minutes and 15 seconds before Dhuhr
+        val mockNow = schedule.dhuhrTimestamp - (30 * 60 * 1000L + 15 * 1000L)
+        val countdown = PrayerTimeCalculator.getLiveCountdown(schedule, mockNow)
+
+        assertEquals("Dhuhr", countdown.nextPrayerName)
+        assertEquals(0L, countdown.hours)
+        assertEquals(30L, countdown.minutes)
+        assertEquals(15L, countdown.seconds)
+        assertEquals("00:30:15", countdown.formattedHMS)
+        assertTrue(countdown.progressFraction in 0f..1f)
+    }
+
+    @Test
     fun testQiblaCalculation() {
         // From Karachi to Makkah
         val bearing = QiblaCalculator.calculateQiblaBearing(24.8607, 67.0011)
@@ -1252,19 +1306,76 @@ class ExampleRobolectricTest {
         assertNotNull(chainBukhari1)
         assertEquals(1, chainBukhari1.hadithNumber)
         assertEquals("bukhari", chainBukhari1.collectionId)
-        assertTrue(chainBukhari1.nodes.size >= 5)
+        assertEquals(8, chainBukhari1.nodes.size)
+        assertEquals(7, chainBukhari1.links.size)
+        assertTrue(chainBukhari1.isContinuityVerified)
+        assertEquals(245, chainBukhari1.spanYears)
 
         val compiler = chainBukhari1.nodes.first()
         assertEquals(com.example.data.model.NarratorRole.COMPILER, compiler.role)
         assertTrue(compiler.nameEnglish.contains("Bukhari"))
+        assertEquals(1, compiler.sunnahNarratorId)
+        assertEquals(com.example.data.model.ScholarlyGradeTier.PURPLE, compiler.gradeTier)
+        assertTrue(compiler.evaluations.any { it.scholarName.contains("Ibn Hajar") })
 
         val prophet = chainBukhari1.nodes.last()
         assertEquals(com.example.data.model.NarratorRole.PROPHET, prophet.role)
         assertTrue(prophet.nameEnglish.contains("Prophet Muhammad"))
+        assertEquals(com.example.data.model.ScholarlyGradeTier.GOLD, prophet.gradeTier)
+
+        // Verify first transmission link: Bukhari -> Al-Humaydi
+        val firstLink = chainBukhari1.links[0]
+        assertEquals("bukhari", firstLink.fromNodeId)
+        assertEquals("al_humaydi", firstLink.toNodeId)
+        assertEquals("حَدَّثَنَا", firstLink.formulaArabic)
+        assertEquals(com.example.data.model.TransmissionMethod.SAMA, firstLink.method)
+        assertTrue(firstLink.isDirectHearingProven)
+
+        // Verify last transmission link: Umar (RA) -> Prophet
+        val lastLink = chainBukhari1.links.last()
+        assertEquals("umar", lastLink.fromNodeId)
+        assertEquals("prophet", lastLink.toNodeId)
+        assertTrue(lastLink.isDirectHearingProven)
+
+        // Test Bukhari Hadith #2 (Golden Madinan Chain)
+        val chainBukhari2 = com.example.data.seed.SanadChainSeedData.getSanadForHadith("bukhari", 2)
+        assertNotNull(chainBukhari2)
+        assertEquals(2, chainBukhari2.hadithNumber)
+        assertEquals(7, chainBukhari2.nodes.size)
+        assertEquals(6, chainBukhari2.links.size)
+        assertTrue(chainBukhari2.nodes.any { it.nodeId == "malik" })
+        assertTrue(chainBukhari2.nodes.any { it.nodeId == "aisha" })
     }
 
     @Test
+    fun testSunnahComTransmissionMethodsAndGrading() {
+        val methods = com.example.data.model.TransmissionMethod.entries
+        assertTrue(methods.size >= 5)
+        assertTrue(methods.contains(com.example.data.model.TransmissionMethod.SAMA))
+        assertTrue(methods.contains(com.example.data.model.TransmissionMethod.QIRAAH))
+        assertTrue(methods.contains(com.example.data.model.TransmissionMethod.ANANAH))
+
+        for (method in methods) {
+            assertTrue(method.arabicTerm.isNotBlank())
+            assertTrue(method.englishTerm.isNotBlank())
+            assertTrue(method.description.isNotBlank())
+        }
+
+        // Test dynamic synthesized chain for other collections (e.g. Muslim)
+        val muslimChain = com.example.data.seed.SanadChainSeedData.getSanadForHadith("muslim", 8)
+        assertNotNull(muslimChain)
+        assertEquals(8, muslimChain.hadithNumber)
+        assertTrue(muslimChain.links.isNotEmpty())
+        assertTrue(muslimChain.nodes.any { it.role == com.example.data.model.NarratorRole.COMPILER })
+        assertTrue(muslimChain.nodes.any { it.role == com.example.data.model.NarratorRole.COMPANION })
+    }
+
+
+    @Test
     fun testComparativeFiqhAndAsbabAlNuzul() {
+        val allTopics = com.example.data.seed.ComparativeFiqhSeedData.TOPICS
+        assertTrue(allTopics.size >= 8)
+
         val wuduTopic = com.example.data.seed.ComparativeFiqhSeedData.getTopic("wudu_intentions_order")
         assertNotNull(wuduTopic)
         assertEquals(4, wuduTopic!!.rulings.size)
@@ -1272,12 +1383,48 @@ class ExampleRobolectricTest {
         assertTrue(wuduTopic.rulings.any { it.madhab == com.example.data.model.Madhab.MALIKI })
         assertTrue(wuduTopic.rulings.any { it.madhab == com.example.data.model.Madhab.SHAFII })
         assertTrue(wuduTopic.rulings.any { it.madhab == com.example.data.model.Madhab.HANBALI })
+        assertTrue(wuduTopic.quickSummaryTable.containsKey(com.example.data.model.Madhab.HANAFI))
+        assertTrue(wuduTopic.practicalTakeaway.isNotBlank())
+
+        val touchingSkinTopic = com.example.data.seed.ComparativeFiqhSeedData.getTopic("wudu_touching_skin")
+        assertNotNull(touchingSkinTopic)
+        assertEquals(4, touchingSkinTopic!!.rulings.size)
+
+        val jewelryTopic = com.example.data.seed.ComparativeFiqhSeedData.getTopic("zakat_women_jewelry")
+        assertNotNull(jewelryTopic)
+        assertEquals(4, jewelryTopic!!.rulings.size)
 
         val asbabFatihah = com.example.data.seed.AsbabAlNuzulSeedData.getForSurah(1)
         assertNotNull(asbabFatihah)
         assertEquals(1, asbabFatihah!!.surahNumber)
         assertTrue(asbabFatihah.historicalIncident.isNotEmpty())
     }
+
+    @Test
+    fun testMadhabEnumFoundationsAndToggles() {
+        val madhabs = com.example.data.model.Madhab.entries
+        assertEquals(4, madhabs.size)
+
+        val hanafi = com.example.data.model.Madhab.HANAFI
+        assertEquals("Hanafi", hanafi.displayName)
+        assertEquals("الحنفي", hanafi.arabicName)
+        assertTrue(hanafi.founder.contains("Abu Hanifa"))
+        assertTrue(hanafi.brandColorHex > 0L)
+        assertTrue(hanafi.coreMethodology.isNotBlank())
+
+        val maliki = com.example.data.model.Madhab.MALIKI
+        assertEquals("Maliki", maliki.displayName)
+        assertTrue(maliki.founder.contains("Malik"))
+
+        val shafii = com.example.data.model.Madhab.SHAFII
+        assertEquals("Shafi'i", shafii.displayName)
+        assertTrue(shafii.founder.contains("Shafi'i"))
+
+        val hanbali = com.example.data.model.Madhab.HANBALI
+        assertEquals("Hanbali", hanbali.displayName)
+        assertTrue(hanbali.founder.contains("Ahmad"))
+    }
+
 
     @Test
     fun testQuranExplorerStructureAndMorphology() {
@@ -1315,7 +1462,503 @@ class ExampleRobolectricTest {
         assertNotNull(rahmanRoot)
         assertEquals(560, rahmanRoot!!.totalOccurrencesInQuran)
     }
+
+    @Test
+    fun testSpiritualChatMessageModel() {
+        val userMsg = com.example.data.model.SpiritualChatMessage(
+            sender = com.example.data.model.MessageSender.USER,
+            text = "How can I maintain focus in Namaz?"
+        )
+        assertEquals(com.example.data.model.MessageSender.USER, userMsg.sender)
+        assertEquals("How can I maintain focus in Namaz?", userMsg.text)
+        assertFalse(userMsg.isStreaming)
+        assertFalse(userMsg.isError)
+
+        val aiMsg = com.example.data.model.SpiritualChatMessage(
+            sender = com.example.data.model.MessageSender.AI,
+            text = "To attain Khushoo, remember you stand directly before your Creator.",
+            arabicSnippet = "قَدْ أَفْلَحَ الْمُؤْمِنُونَ الَّذِينَ هُمْ فِي صَلَاتِهِمْ خَاشِعُونَ",
+            reference = "Surah Al-Mu'minun 23:1-2",
+            translation = "Certainly will the believers have succeeded: They who are during their prayer humbly submissive."
+        )
+        assertEquals(com.example.data.model.MessageSender.AI, aiMsg.sender)
+        assertNotNull(aiMsg.arabicSnippet)
+        assertEquals("Surah Al-Mu'minun 23:1-2", aiMsg.reference)
+    }
+
+    @Test
+    fun testDailyDuaRoomDatabaseRotation() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val todayDua = com.example.data.repository.DuaOfTheDayRepository.getTodayDua(context, dayOffset = 0)
+        assertNotNull(todayDua)
+        assertTrue(todayDua.title.isNotBlank())
+        assertTrue(todayDua.arabic.isNotBlank())
+        assertTrue(todayDua.reference.isNotBlank())
+
+        val nextDayDua = com.example.data.repository.DuaOfTheDayRepository.getTodayDua(context, dayOffset = 1)
+        assertNotNull(nextDayDua)
+        assertTrue(nextDayDua.title.isNotBlank())
+    }
+
+    @Test
+    fun testSpiritualGoalsModelDefaultsAndCustomization() {
+        val defaultGoals = com.example.domain.model.SpiritualGoals()
+        assertEquals(10, defaultGoals.dailyQuranAyahsTarget)
+        assertEquals(0.5f, defaultGoals.weeklyQuranJuzTarget, 0.01f)
+        assertEquals("Surah Al-Baqarah", defaultGoals.targetSurahKhatamGoal)
+        assertEquals(5, defaultGoals.weeklyHadithsToStudy)
+        assertEquals("40 Hadith Nawawi", defaultGoals.targetHadithCollection)
+        assertEquals(4, defaultGoals.monthlyDuasToMemorize)
+        assertEquals("Morning & Evening", defaultGoals.targetDuaCategory)
+        assertEquals(5, defaultGoals.dailySalahTarget)
+        assertEquals(4, defaultGoals.monthlyFastingTargetDays)
+        assertEquals(3, defaultGoals.salahMeaningUnderstandingCompleted)
+
+        val customGoals = defaultGoals.copy(
+            dailyQuranAyahsTarget = 25,
+            weeklyHadithsToStudy = 10,
+            monthlyDuasToMemorize = 8,
+            monthlyFastingTargetDays = 6,
+            salahMeaningUnderstandingCompleted = 6
+        )
+        assertEquals(25, customGoals.dailyQuranAyahsTarget)
+        assertEquals(10, customGoals.weeklyHadithsToStudy)
+        assertEquals(8, customGoals.monthlyDuasToMemorize)
+        assertEquals(6, customGoals.monthlyFastingTargetDays)
+        assertEquals(6, customGoals.salahMeaningUnderstandingCompleted)
+    }
+
+    @Test
+    fun testSpiritualAchievementsEngineProgressCalculation() {
+        val goals = com.example.domain.model.SpiritualGoals(
+            dailyQuranAyahsTarget = 20,
+            weeklyHadithsToStudy = 5,
+            monthlyDuasToMemorize = 4,
+            dailySalahTarget = 5,
+            monthlyFastingTargetDays = 2,
+            salahMeaningUnderstandingCompleted = 2
+        )
+
+        val baseState = com.example.ui.viewmodel.DeenUiState()
+        val emptyProgress = com.example.domain.SpiritualAchievementsEngine.computeProgressSummary(baseState, goals)
+
+        assertNotNull(emptyProgress)
+        assertTrue(emptyProgress.overallSpiritualVitalityScore in 5..100)
+        assertNotNull(emptyProgress.spiritualRankTitle)
+        assertEquals(20, emptyProgress.quranAyahsGoal)
+        assertEquals(5, emptyProgress.hadithsStudiedGoal)
+        assertEquals(4, emptyProgress.duasMemorizedGoal)
+        assertEquals(2, emptyProgress.fastingGoalDays)
+        assertEquals(2, emptyProgress.salahStepsUnderstood)
+
+        // Test with full progress state
+        val fullState = baseState.copy(
+            prayerRecord = com.example.data.local.PrayerRecordEntity(
+                dateStr = "2026-11-04",
+                fajr = true, dhuhr = true, asr = true, maghrib = true, isha = true
+            ),
+            hadithStudiedCount = 10,
+            duaMemorizedCount = 6,
+            totalFastedDaysCount = 4,
+            completedActionSteps = setOf(1, 2, 3, 4)
+        )
+        val fullProgress = com.example.domain.SpiritualAchievementsEngine.computeProgressSummary(fullState, goals)
+        assertEquals(1.0f, fullProgress.salahProgressPercentage, 0.01f)
+        assertEquals(1.0f, fullProgress.hadithProgressPercentage, 0.01f)
+        assertEquals(1.0f, fullProgress.duaProgressPercentage, 0.01f)
+        assertEquals(1.0f, fullProgress.fastingProgressPercentage, 0.01f)
+        assertEquals(1.0f, fullProgress.quranProgressPercentage, 0.01f)
+        assertTrue(fullProgress.overallSpiritualVitalityScore >= 95)
+        assertEquals("Muttaqi (Steadfast)", fullProgress.spiritualRankTitle)
+    }
+
+    @Test
+    fun testSpiritualBadgesEvaluation() {
+        val goals = com.example.domain.model.SpiritualGoals(
+            salahMeaningUnderstandingCompleted = 5
+        )
+        val state = com.example.ui.viewmodel.DeenUiState(
+            prayerStats = com.example.sync.HistoricalPrayerStats(currentStreakDays = 8),
+            prayerRecord = com.example.data.local.PrayerRecordEntity(
+                dateStr = "2026-11-04",
+                fajr = true, dhuhr = true, asr = true, maghrib = true, isha = true
+            ),
+            hadithStudiedCount = 15,
+            hadithMemorizedCount = 3,
+            duaMemorizedCount = 7,
+            totalFastedDaysCount = 3,
+            totalTasbihCount = 550,
+            isQiblaAligned = true,
+            completedActionSteps = setOf(1, 2, 3)
+        )
+
+        val badges = com.example.domain.SpiritualAchievementsEngine.computeBadges(state, goals)
+        assertEquals(10, badges.size)
+
+        // 8 days streak -> badge_steadfast_musalli should be unlocked
+        val streakBadge = badges.firstOrNull { it.id == "badge_steadfast_musalli" }
+        assertNotNull(streakBadge)
+        assertTrue(streakBadge!!.isUnlocked)
+
+        // All 5 prayers today -> badge_salah_guardian should be unlocked
+        val guardianBadge = badges.firstOrNull { it.id == "badge_salah_guardian" }
+        assertNotNull(guardianBadge)
+        assertTrue(guardianBadge!!.isUnlocked)
+
+        // 15 hadiths -> badge_hadith_seeker should be unlocked (threshold 5)
+        val hadithBadge = badges.firstOrNull { it.id == "badge_hadith_seeker" }
+        assertNotNull(hadithBadge)
+        assertTrue(hadithBadge!!.isUnlocked)
+
+        // 7 duas -> badge_dua_hisn should be unlocked (threshold 4)
+        val duaBadge = badges.firstOrNull { it.id == "badge_dua_hisn" }
+        assertNotNull(duaBadge)
+        assertTrue(duaBadge!!.isUnlocked)
+
+        // 5 salah steps understood -> badge_khushu_mastery should be unlocked (threshold 5)
+        val mindfulNamazBadge = badges.firstOrNull { it.id == "badge_khushu_mastery" }
+        assertNotNull(mindfulNamazBadge)
+        assertTrue(mindfulNamazBadge!!.isUnlocked)
+
+        // 550 tasbih -> badge_zakir_tasbih should be unlocked (threshold 500)
+        val zakirBadge = badges.firstOrNull { it.id == "badge_zakir_tasbih" }
+        assertNotNull(zakirBadge)
+        assertTrue(zakirBadge!!.isUnlocked)
+    }
+
+    @Test
+    fun testUserAvatarDirectory() {
+        val allAvatars = com.example.domain.model.UserAvatar.entries
+        assertTrue(allAvatars.size >= 8)
+
+        val mosque = com.example.domain.model.UserAvatar.fromId("avatar_mosque")
+        assertEquals("avatar_mosque", mosque.id)
+        assertEquals("🕌", mosque.emoji)
+
+        val quran = com.example.domain.model.UserAvatar.fromId("avatar_quran")
+        assertEquals("avatar_quran", quran.id)
+        assertEquals("📖", quran.emoji)
+
+        // Fallback for non-existent ID
+        val fallback = com.example.domain.model.UserAvatar.fromId("unknown_id_xyz")
+        assertEquals(com.example.domain.model.UserAvatar.MOSQUE, fallback)
+    }
+
+    @Test
+    fun testZakatGoldAndSilverHadithNisabCalculations() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val zakatRepo = com.example.data.repository.ZakatPriceRepository(context)
+
+        val usdCurrency = com.example.data.model.CurrencyInfo.findByCode("USD")
+        assertEquals("USD", usdCurrency.code)
+
+        val rates = com.example.data.model.GoldSilverRates(
+            goldPricePerGramUSD = 100.0,
+            silverPricePerGramUSD = 1.0
+        )
+
+        // 1. Hadith-grounded Nisab Thresholds:
+        // Gold Nisab = 20 Dinars / Mithqals = 85.0 grams pure gold (Sunan Abi Dawud #1573)
+        val expectedGoldNisab = 100.0 * 85.0 // 8,500 USD
+        assertEquals(expectedGoldNisab, rates.calculateGoldNisab(usdCurrency), 0.001)
+
+        // Silver Nisab = 200 Dirhams = 595.0 grams pure silver (Sahih al-Bukhari #1405)
+        val expectedSilverNisab = 1.0 * 595.0 // 595 USD
+        assertEquals(expectedSilverNisab, rates.calculateSilverNisab(usdCurrency), 0.001)
+
+        // 2. Calculation with Silver Nisab when Net Wealth >= Nisab and Hawl is met
+        val inputEligible = com.example.data.model.ZakatAssetInput(
+            cashInHandAndBank = 1000.0,
+            immediateDebtsDueNow = 200.0
+        )
+        val resultEligible = zakatRepo.calculateZakat(
+            input = inputEligible,
+            currency = usdCurrency,
+            rates = rates,
+            standard = com.example.data.model.NisabStandard.SILVER,
+            isHawlMet = true
+        )
+
+        assertEquals(800.0, resultEligible.netZakatableWealth, 0.001)
+        assertTrue(resultEligible.isNetWealthAboveNisab)
+        assertTrue(resultEligible.isZakatPayable)
+        // Rate: exactly 2.5% (1/40th / Rub' al-'Ushr) -> 800 * 0.025 = 20.0
+        assertEquals(20.0, resultEligible.zakatPayableAmount, 0.001)
+
+        // 3. Below Nisab test: Net Wealth (400 USD) < Silver Nisab (595 USD)
+        val inputBelowNisab = com.example.data.model.ZakatAssetInput(
+            cashInHandAndBank = 500.0,
+            immediateDebtsDueNow = 100.0
+        )
+        val resultBelow = zakatRepo.calculateZakat(
+            input = inputBelowNisab,
+            currency = usdCurrency,
+            rates = rates,
+            standard = com.example.data.model.NisabStandard.SILVER,
+            isHawlMet = true
+        )
+        assertEquals(400.0, resultBelow.netZakatableWealth, 0.001)
+        assertFalse(resultBelow.isNetWealthAboveNisab)
+        assertFalse(resultBelow.isZakatPayable)
+        assertEquals(0.0, resultBelow.zakatPayableAmount, 0.001)
+
+        // 4. Hawl (1 lunar year) not met test: wealth above Nisab, but Hawl is false -> 0 Zakat
+        val resultNoHawl = zakatRepo.calculateZakat(
+            input = inputEligible,
+            currency = usdCurrency,
+            rates = rates,
+            standard = com.example.data.model.NisabStandard.SILVER,
+            isHawlMet = false
+        )
+        assertTrue(resultNoHawl.isNetWealthAboveNisab)
+        assertFalse(resultNoHawl.isHawlMet)
+        assertFalse(resultNoHawl.isZakatPayable)
+        assertEquals(0.0, resultNoHawl.zakatPayableAmount, 0.001)
+    }
+
+    @Test
+    fun testZakatMultiCurrencyConversionAndPersistence() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val zakatRepo = com.example.data.repository.ZakatPriceRepository(context)
+
+        // Verify currency catalogue
+        val currencies = com.example.data.model.CurrencyInfo.ALL_CURRENCIES
+        assertTrue(currencies.size >= 15)
+
+        val sarCurrency = com.example.data.model.CurrencyInfo.findByCode("SAR")
+        assertEquals("SAR", sarCurrency.code)
+        assertEquals("﷼", sarCurrency.symbol)
+        assertEquals(3.75, sarCurrency.usdExchangeRate, 0.001)
+
+        val pkrCurrency = com.example.data.model.CurrencyInfo.findByCode("PKR")
+        assertEquals("PKR", pkrCurrency.code)
+        assertEquals("Rs", pkrCurrency.symbol)
+
+        // Test SharedPreferences Currency Persistence
+        zakatRepo.setCurrency("SAR")
+        assertEquals("SAR", zakatRepo.selectedCurrency.value.code)
+
+        // Recreate repository from context to verify persistent load across app restart
+        val reloadedRepo = com.example.data.repository.ZakatPriceRepository(context)
+        assertEquals("SAR", reloadedRepo.selectedCurrency.value.code)
+
+        // Purity scaling checks: 24K (1.0), 22K (22/24), 21K (21/24), 18K (18/24)
+        val rates = com.example.data.model.GoldSilverRates(goldPricePerGramUSD = 80.0)
+        val gold24k = rates.getGoldPricePerGram(sarCurrency, com.example.data.model.GoldPurity.K24)
+        val gold22k = rates.getGoldPricePerGram(sarCurrency, com.example.data.model.GoldPurity.K22)
+        val gold18k = rates.getGoldPricePerGram(sarCurrency, com.example.data.model.GoldPurity.K18)
+
+        assertEquals(80.0 * 3.75, gold24k, 0.001) // 300 SAR
+        assertEquals(300.0 * (22.0 / 24.0), gold22k, 0.001) // 275 SAR
+        assertEquals(300.0 * (18.0 / 24.0), gold18k, 0.001) // 225 SAR
+    }
+
+    @Test
+    fun testZakatAssetLiabilitiesAndSavedRecords() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val zakatRepo = com.example.data.repository.ZakatPriceRepository(context)
+
+        val usd = com.example.data.model.CurrencyInfo.findByCode("USD")
+        val rates = com.example.data.model.GoldSilverRates(
+            goldPricePerGramUSD = 80.0,
+            silverPricePerGramUSD = 1.0
+        )
+
+        // Input combining cash, gold carats, silver, trade goods, liabilities
+        val assetInput = com.example.data.model.ZakatAssetInput(
+            cashInHandAndBank = 5000.0,
+            goldGrams24k = 10.0, // 10 * 80 = 800
+            goldGrams22k = 24.0, // 24 * (80 * 22/24) = 1760
+            silverGrams = 100.0, // 100 * 1 = 100
+            businessInventoryGoods = 4000.0,
+            sharesAndMutualFunds = 2000.0,
+            immediateDebtsDueNow = 1500.0,
+            currentMonthBillsAndExpenses = 500.0
+        )
+
+        val result = zakatRepo.calculateZakat(
+            input = assetInput,
+            currency = usd,
+            rates = rates,
+            standard = com.example.data.model.NisabStandard.GOLD,
+            isHawlMet = true
+        )
+
+        // Gross = 5000 + 800 + 1760 + 100 + 4000 + 2000 = 13660
+        assertEquals(13660.0, result.grossAssets, 0.01)
+        // Liabilities = 1500 + 500 = 2000
+        assertEquals(2000.0, result.totalLiabilities, 0.01)
+        // Net = 13660 - 2000 = 11660
+        assertEquals(11660.0, result.netZakatableWealth, 0.01)
+        // Gold Nisab = 85 * 80 = 6800. Net (11660) >= 6800 -> eligible!
+        assertTrue(result.isZakatPayable)
+        // Zakat = 11660 * 0.025 = 291.50
+        assertEquals(291.50, result.zakatPayableAmount, 0.01)
+
+        // Test saving record
+        val savedId = zakatRepo.saveCalculation(
+            title = "Ramadan 1446 Zakat",
+            result = result,
+            currency = usd,
+            notes = "Paid to local widows & students"
+        )
+        assertNotNull(savedId)
+
+        val records = zakatRepo.savedRecords.value
+        val saved = records.find { it.id == savedId }
+        assertNotNull(saved)
+        assertEquals("Ramadan 1446 Zakat", saved!!.title)
+        assertEquals(291.50, saved.zakatAmount, 0.01)
+        assertEquals("USD", saved.currencyCode)
+
+        // Test delete record
+        zakatRepo.deleteRecord(savedId)
+        val recordsAfterDelete = zakatRepo.savedRecords.value
+        assertFalse(recordsAfterDelete.any { it.id == savedId })
+
+        // Verify the 8 Quranic Beneficiaries list
+        val beneficiaries = com.example.data.model.ZakatBeneficiary.MASARIF_LIST
+        assertEquals(8, beneficiaries.size)
+        assertEquals("fuqara", beneficiaries[0].id)
+        assertEquals("الْفُقَرَاء", beneficiaries[0].arabicTitle)
+        assertEquals("ibn_sabil", beneficiaries[7].id)
+        assertEquals("ابْنِ السَّبِيل", beneficiaries[7].arabicTitle)
+    }
+
+    @Test
+    fun test99NamesOfAllahCanonAndMemorization() {
+        val allNames = com.example.data.model.AsmaUlHusnaData.ALL_99_NAMES
+        assertEquals(99, allNames.size)
+
+        // Verify first and last names per authentic Sunnah
+        assertEquals(1, allNames.first().number)
+        assertEquals("Ar-Rahman", allNames.first().transliteration)
+        assertEquals("الرَّحْمَٰنُ", allNames.first().arabic)
+        assertTrue(allNames.first().quranicReference.isNotBlank())
+
+        assertEquals(99, allNames.last().number)
+        assertEquals("As-Sabur", allNames.last().transliteration)
+        assertEquals("الصَّبُورُ", allNames.last().arabic)
+
+        // Verify uniqueness of numbers 1..99
+        val numbers = allNames.map { it.number }.toSet()
+        assertEquals(99, numbers.size)
+
+        // Verify search matching
+        val matchingRahman = allNames.filter { it.transliteration.contains("Rahman", ignoreCase = true) }
+        assertTrue(matchingRahman.isNotEmpty())
+
+        // Verify state model
+        var state = com.example.data.model.AsmaUlHusnaState()
+        assertEquals(0, state.memorizedIds.size)
+        state = state.copy(memorizedIds = setOf(1, 2, 3))
+        assertEquals(3, state.memorizedIds.size)
+        assertTrue(state.memorizedIds.contains(1))
+
+        // Verify helper functions for home dashboard preview
+        val featured = com.example.data.model.AsmaUlHusnaData.getFeaturedName(1)
+        assertEquals(1, featured.number)
+        assertEquals("Ar-Rahman", featured.transliteration)
+
+        val previewNames = com.example.data.model.AsmaUlHusnaData.getPreviewNames(8)
+        assertEquals(8, previewNames.size)
+        assertEquals(1, previewNames[0].number)
+        assertEquals(8, previewNames[7].number)
+
+        assertEquals(0, com.example.data.model.AsmaUlHusnaData.getMemorizedPercentage(0))
+        assertEquals(50, com.example.data.model.AsmaUlHusnaData.getMemorizedPercentage(50))
+        assertEquals(100, com.example.data.model.AsmaUlHusnaData.getMemorizedPercentage(99))
+    }
+
+    @Test
+    fun testHajjAndUmrahRitualsAndCounters() {
+        val umrahSteps = com.example.data.model.HajjUmrahData.UMRAH_STEPS
+        assertEquals(4, umrahSteps.size)
+        assertEquals("umrah_ihram", umrahSteps[0].id)
+        assertEquals("umrah_tawaf", umrahSteps[1].id)
+        assertEquals("umrah_sai", umrahSteps[2].id)
+        assertEquals("umrah_halq", umrahSteps[3].id)
+
+        val hajjDays = com.example.data.model.HajjUmrahData.HAJJ_DAYS
+        assertEquals(4, hajjDays.size)
+        assertEquals("hajj_day_8", hajjDays[0].id)
+        assertEquals("hajj_day_9", hajjDays[1].id)
+
+        // Test Interactive Tawaf Tracker (7 laps)
+        var tawaf = com.example.data.model.TawafTrackerState()
+        assertEquals(1, tawaf.currentLap)
+        assertEquals(0, tawaf.completedLaps)
+        assertFalse(tawaf.isFinished)
+
+        // Simulate 7 laps
+        for (i in 1..7) {
+            val isDone = i == 7
+            tawaf = tawaf.copy(
+                completedLaps = i,
+                currentLap = if (isDone) 7 else i + 1,
+                isFinished = isDone
+            )
+        }
+        assertEquals(7, tawaf.completedLaps)
+        assertTrue(tawaf.isFinished)
+
+        // Test Interactive Sa'i Tracker (7 rounds Safa-Marwah)
+        var sai = com.example.data.model.SaiTrackerState()
+        assertEquals(1, sai.currentRound)
+        assertEquals("Safa", sai.currentStation)
+
+        // Round 1 Safa->Marwah, Round 2 Marwah->Safa
+        sai = sai.copy(completedRounds = 1, currentRound = 2, currentStation = "Marwah")
+        assertEquals(1, sai.completedRounds)
+        assertEquals("Marwah", sai.currentStation)
+
+        // Checklist items
+        val checklist = com.example.data.model.HajjUmrahData.DEFAULT_CHECKLIST
+        assertTrue(checklist.size >= 10)
+        assertFalse(checklist[0].isCompleted)
+    }
+
+    @Test
+    fun testQadaSalahCalculatorAndPersistence() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val qadaRepo = com.example.data.repository.QadaSalahRepository(context)
+
+        // Set deficit of 365 days (1 full year)
+        qadaRepo.setTotalDeficit(365)
+        var counts = qadaRepo.countsState.value
+        assertEquals(365, counts.fajrRemaining)
+        assertEquals(365, counts.dhuhrRemaining)
+        assertEquals(365, counts.witrRemaining)
+        assertEquals(0, counts.fajrCompleted)
+
+        // Mark Fajr completed
+        qadaRepo.markPrayerCompleted(com.example.data.model.QadaPrayerType.FAJR, delta = 1)
+        counts = qadaRepo.countsState.value
+        assertEquals(364, counts.fajrRemaining)
+        assertEquals(1, counts.fajrCompleted)
+
+        // Mark batch 5 Dhuhr completed
+        qadaRepo.markPrayerCompleted(com.example.data.model.QadaPrayerType.DHUHR, delta = 5)
+        counts = qadaRepo.countsState.value
+        assertEquals(360, counts.dhuhrRemaining)
+        assertEquals(5, counts.dhuhrCompleted)
+
+        // Undo 1 Dhuhr
+        qadaRepo.undoPrayerCompleted(com.example.data.model.QadaPrayerType.DHUHR, delta = 1)
+        counts = qadaRepo.countsState.value
+        assertEquals(361, counts.dhuhrRemaining)
+        assertEquals(4, counts.dhuhrCompleted)
+
+        // Verify reload from SharedPreferences
+        val reloadedRepo = com.example.data.repository.QadaSalahRepository(context)
+        val reloadedCounts = reloadedRepo.countsState.value
+        assertEquals(364, reloadedCounts.fajrRemaining)
+        assertEquals(1, reloadedCounts.fajrCompleted)
+        assertEquals(361, reloadedCounts.dhuhrRemaining)
+        assertEquals(4, reloadedCounts.dhuhrCompleted)
+    }
 }
+
 
 
 

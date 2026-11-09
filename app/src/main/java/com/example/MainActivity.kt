@@ -13,10 +13,15 @@ import com.example.ui.screens.DeenMainScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.DeenViewModel
 import com.example.ui.viewmodel.MainTab
+import com.example.util.configureAppCheck
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // STEP 1: Configure Firebase App Check with launch intent before any UI or Firebase operations
+        configureAppCheck(this, intent)
+
         enableEdgeToEdge()
 
         // Ensure notification channels are set up on Android 8.0+

@@ -154,6 +154,8 @@ class PrayerNotificationSchedulerService : Service() {
 
             // 3. Configure Alarms via AlarmManager
             PrayerNotificationHelper.scheduleDailyPrayerAlarms(context, prayerSchedule, settings)
+            // Also refresh daily Quran reading reminder schedule
+            PrayerNotificationHelper.scheduleDailyQuranReminder(context)
 
             // 4. Retrieve next alarm info
             val nextAlarmInfo = PrayerNotificationHelper.getNextScheduledAlarmInfo(context, prayerSchedule, settings)

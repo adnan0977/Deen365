@@ -53,6 +53,9 @@ interface HadithDao {
     @Query("SELECT * FROM hadiths ORDER BY collection ASC, hadithNumber ASC")
     fun getAllHadiths(): Flow<List<HadithEntity>>
 
+    @Query("SELECT * FROM hadiths ORDER BY collection ASC, hadithNumber ASC")
+    suspend fun getAllHadithsSync(): List<HadithEntity>
+
     @Query("SELECT COUNT(*) FROM hadiths WHERE isFavorite = 1")
     fun getFavoriteHadithsCount(): Flow<Int>
 

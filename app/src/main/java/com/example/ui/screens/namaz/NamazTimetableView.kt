@@ -1,7 +1,6 @@
 package com.example.ui.screens.namaz
 
 import android.Manifest
-import android.content.Context
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -26,9 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.notification.AlertSoundMode
 import com.example.ui.theme.EmeraldPrimary
-import com.example.ui.theme.EmeraldPrimaryVariant
 import com.example.ui.theme.GoldAccent
-import com.example.ui.theme.GoldLight
 import com.example.ui.viewmodel.DeenUiState
 import com.example.ui.viewmodel.DeenViewModel
 
@@ -57,118 +54,15 @@ fun NamazTimetableView(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. Location & Calculation Method Minimalist Bar
-        Surface(
-            shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            modifier = Modifier.fillMaxWidth().testTag("namaz_location_bar")
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    modifier = Modifier.clickable { onOpenCityPicker() }
-                ) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(18.dp))
-                    Column {
-                        Text(
-                            text = "${state.selectedCity.name}, ${state.selectedCity.country}",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = state.selectedCalculationMethod.title,
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
+        // 1. Prayer Times Module (Location API GPS coordinates, live countdown ticker, daily Namaz timetable)
+        PrayerTimesModuleView(
+            state = state,
+            viewModel = viewModel,
+            onOpenCityPicker = onOpenCityPicker,
+            onOpenMethodPicker = onOpenMethodPicker
+        )
 
-                TextButton(
-                    onClick = onOpenMethodPicker,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text("Method", fontSize = 12.sp, color = EmeraldPrimary, fontWeight = FontWeight.SemiBold)
-                }
-            }
-        }
-
-        // 2. Upcoming Prayer Hero Countdown Card
-        val nextPrayerName = state.prayerSchedule.nextPrayerName
-        val nextPrayerTime = when (nextPrayerName.lowercase()) {
-            "fajr" -> state.prayerSchedule.fajr
-            "sunrise" -> state.prayerSchedule.sunrise
-            "dhuhr" -> state.prayerSchedule.dhuhr
-            "asr" -> state.prayerSchedule.asr
-            "maghrib" -> state.prayerSchedule.maghrib
-            else -> state.prayerSchedule.isha
-        }
-
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = EmeraldPrimary),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-            modifier = Modifier.fillMaxWidth().testTag("next_prayer_banner")
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(18.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = GoldAccent.copy(alpha = 0.25f)
-                    ) {
-                        Text(
-                            text = "NEXT PRAYER",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                letterSpacing = 1.sp,
-                                color = GoldLight,
-                                fontWeight = FontWeight.ExtraBold
-                            ),
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    Text(
-                        text = nextPrayerName,
-                        style = MaterialTheme.typography.headlineMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Color.White
-                        )
-                    )
-                    Text(
-                        text = "Begins at $nextPrayerTime • In ${state.prayerSchedule.timeRemainingNextPrayer}",
-                        style = MaterialTheme.typography.bodyMedium.copy(color = Color.White.copy(alpha = 0.9f))
-                    )
-                }
-
-                Surface(
-                    shape = CircleShape,
-                    color = GoldAccent,
-                    modifier = Modifier.size(50.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Default.NotificationsActive,
-                            contentDescription = null,
-                            tint = Color.Black,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-                }
-            }
-        }
-
-        // 2b. Local Mosque & Iqamah Timings Card
+        // 2. Local Mosque & Iqamah Timings Card
         val activeMosqueCount = state.mosqueTimings.count { it.isMosqueTimingActive }
         Card(
             shape = RoundedCornerShape(18.dp),
@@ -225,8 +119,8 @@ fun NamazTimetableView(
                             }
                             Text(
                                 text = if (state.isGlobalMosqueActive) "Alarms ring at your mosque's custom Iqamah timings"
-                                       else if (activeMosqueCount > 0) "$activeMosqueCount prayer(s) customized with manual Iqamah alarms"
-                                       else "Using astronomical solar times • Tap to set mosque timings",
+                                else if (activeMosqueCount > 0) "$activeMosqueCount prayer(s) customized with manual Iqamah alarms"
+                                else "Using astronomical solar times • Tap to set mosque timings",
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -278,75 +172,7 @@ fun NamazTimetableView(
             }
         }
 
-        // 3. Beautiful 5-Prayer Daily Timeline
-        Card(
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.fillMaxWidth().testTag("prayer_timeline_card")
-        ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Today's Timetable & Tracking",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${state.prayerRecord.completedCount}/5 Offered",
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = EmeraldPrimary
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
-
-                val prayers = listOf(
-                    createPrayerItem("Fajr", "الفجر", state.prayerSchedule.fajr, state.prayerRecord.fajr, state.notifyFajr, state),
-                    createPrayerItem("Sunrise", "الشروق", state.prayerSchedule.sunrise, false, state.notifySunrise, state, isSunrise = true),
-                    createPrayerItem("Dhuhr", "الظهر", state.prayerSchedule.dhuhr, state.prayerRecord.dhuhr, state.notifyDhuhr, state),
-                    createPrayerItem("Asr", "العصر", state.prayerSchedule.asr, state.prayerRecord.asr, state.notifyAsr, state),
-                    createPrayerItem("Maghrib", "المغرب", state.prayerSchedule.maghrib, state.prayerRecord.maghrib, state.notifyMaghrib, state),
-                    createPrayerItem("Isha", "العشاء", state.prayerSchedule.isha, state.prayerRecord.isha, state.notifyIsha, state)
-                )
-
-                prayers.forEach { prayer ->
-                    val isNext = prayer.name.equals(nextPrayerName, ignoreCase = true)
-                    val mosqueTiming = state.mosqueTimings.find { it.prayerId.equals(prayer.name, ignoreCase = true) }
-                    PrayerTimelineRow(
-                        prayer = prayer,
-                        isNext = isNext,
-                        onTogglePrayer = { viewModel.togglePrayer(prayer.name) },
-                        onToggleAlert = { enabled ->
-                            viewModel.toggleIndividualPrayerAlert(prayer.name, enabled, context)
-                        },
-                        onToggleMosqueMode = {
-                            if (mosqueTiming != null) {
-                                viewModel.updateMosqueTiming(
-                                    prayerId = mosqueTiming.prayerId,
-                                    manualTime = mosqueTiming.manualMosqueTime,
-                                    isActive = !mosqueTiming.isMosqueTimingActive,
-                                    preAlarmMinutes = mosqueTiming.preAlarmMinutes,
-                                    soundMode = mosqueTiming.alarmSoundMode
-                                )
-                            }
-                        },
-                        onConfigureMosqueTime = {
-                            viewModel.openMosqueTimingsDialog(true)
-                        }
-                    )
-                }
-            }
-        }
-
-        // 4. Adhan Alerts Configuration Card
+        // 3. Adhan Alerts Configuration Card
         Card(
             shape = RoundedCornerShape(18.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)),
@@ -509,196 +335,6 @@ fun NamazTimetableView(
                             Text("Test Notification", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
-                }
-            }
-        }
-    }
-}
-
-private data class PrayerItemData(
-    val name: String,
-    val arabic: String,
-    val time: String,
-    val completed: Boolean,
-    val alertEnabled: Boolean,
-    val isSunrise: Boolean = false,
-    val isMosqueActive: Boolean = false,
-    val calculatedAzanTime: String = ""
-)
-
-private fun createPrayerItem(
-    name: String,
-    arabic: String,
-    defaultTime: String,
-    completed: Boolean,
-    alertEnabled: Boolean,
-    state: DeenUiState,
-    isSunrise: Boolean = false
-): PrayerItemData {
-    val mosqueTiming = state.mosqueTimings.find { it.prayerId.equals(name, ignoreCase = true) }
-    val isMosqueActive = mosqueTiming?.isMosqueTimingActive == true
-    val displayTime = if (isMosqueActive && mosqueTiming != null) mosqueTiming.manualMosqueTime else defaultTime
-
-    return PrayerItemData(
-        name = name,
-        arabic = arabic,
-        time = displayTime,
-        completed = completed,
-        alertEnabled = alertEnabled,
-        isSunrise = isSunrise,
-        isMosqueActive = isMosqueActive,
-        calculatedAzanTime = defaultTime
-    )
-}
-
-@Composable
-private fun PrayerTimelineRow(
-    prayer: PrayerItemData,
-    isNext: Boolean,
-    onTogglePrayer: () -> Unit,
-    onToggleAlert: (Boolean) -> Unit,
-    onToggleMosqueMode: () -> Unit,
-    onConfigureMosqueTime: () -> Unit = {}
-) {
-    Surface(
-        shape = RoundedCornerShape(12.dp),
-        color = if (isNext) EmeraldPrimary.copy(alpha = 0.08f) else Color.Transparent,
-        modifier = Modifier.fillMaxWidth().testTag("prayer_row_${prayer.name.lowercase()}")
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = if (prayer.completed) EmeraldPrimary else if (isNext) GoldAccent else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
-                    modifier = Modifier.size(10.dp)
-                ) {}
-
-                Column {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(
-                            text = prayer.name,
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = if (isNext) FontWeight.ExtraBold else FontWeight.SemiBold
-                            ),
-                            color = if (isNext) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = prayer.arabic,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
-                        )
-                    }
-                }
-            }
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = prayer.time,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = if (isNext) FontWeight.Bold else FontWeight.Medium
-                            ),
-                            color = if (isNext) EmeraldPrimary else MaterialTheme.colorScheme.onSurface
-                        )
-                        if (prayer.isMosqueActive) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = EmeraldPrimary.copy(alpha = 0.15f),
-                                modifier = Modifier
-                                    .clickable { onConfigureMosqueTime() }
-                                    .testTag("mosque_badge_${prayer.name.lowercase()}")
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = "🕌 Iqamah",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = EmeraldPrimary
-                                    )
-                                    Spacer(Modifier.width(2.dp))
-                                    Icon(
-                                        imageVector = Icons.Default.Edit,
-                                        contentDescription = "Edit Iqamah Time",
-                                        tint = EmeraldPrimary,
-                                        modifier = Modifier.size(10.dp)
-                                    )
-                                }
-                            }
-                        } else if (!prayer.isSunrise) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                                modifier = Modifier
-                                    .clickable { onConfigureMosqueTime() }
-                                    .testTag("set_iqamah_badge_${prayer.name.lowercase()}")
-                            ) {
-                                Text(
-                                    text = "+ Iqamah",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-                    }
-                    if (prayer.isMosqueActive && prayer.calculatedAzanTime.isNotBlank()) {
-                        Text(
-                            text = "Azan: ${prayer.calculatedAzanTime} • Tap to edit",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // Inline Adhan Bell Icon
-                IconButton(
-                    onClick = { onToggleAlert(!prayer.alertEnabled) },
-                    modifier = Modifier.size(32.dp).testTag("bell_${prayer.name.lowercase()}")
-                ) {
-                    Icon(
-                        imageVector = if (prayer.alertEnabled) Icons.Default.NotificationsActive else Icons.Default.NotificationsOff,
-                        contentDescription = "Toggle Alert",
-                        tint = if (prayer.alertEnabled) GoldAccent else MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                // Prayer Checkbox Pill (Except sunrise)
-                if (!prayer.isSunrise) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = if (prayer.completed) EmeraldPrimary else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clickable { onTogglePrayer() }
-                            .testTag("check_${prayer.name.lowercase()}")
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            if (prayer.completed) {
-                                Icon(Icons.Default.Check, contentDescription = "Offered", tint = Color.White, modifier = Modifier.size(18.dp))
-                            }
-                        }
-                    }
-                } else {
-                    Spacer(modifier = Modifier.size(32.dp))
                 }
             }
         }

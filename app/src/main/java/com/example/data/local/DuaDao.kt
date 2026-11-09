@@ -61,4 +61,10 @@ interface DuaDao {
 
     @Query("SELECT COUNT(*) FROM duas WHERE isFavorite = 1")
     fun getFavoriteDuasCount(): Flow<Int>
+
+    @Query("SELECT * FROM duas ORDER BY id ASC")
+    suspend fun getAllDuasDirect(): List<DuaEntity>
+
+    @Query("SELECT * FROM duas ORDER BY RANDOM() LIMIT 1")
+    suspend fun getRandomDuaDirect(): DuaEntity?
 }
