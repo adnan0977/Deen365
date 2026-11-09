@@ -19,13 +19,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // STEP 1: Configure Firebase App Check with launch intent before any UI or Firebase operations
-        configureAppCheck(this, intent)
+        try {
+            // STEP 1: Configure Firebase App Check with launch intent before any UI or Firebase operations
+            configureAppCheck(this, intent)
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "AppCheck configuration safe fallback: ${e.message}")
+        }
 
-        enableEdgeToEdge()
+        try {
+            enableEdgeToEdge()
+        } catch (_: Throwable) {}
 
-        // Ensure notification channels are set up on Android 8.0+
-        PrayerNotificationHelper.createNotificationChannel(this)
+        try {
+            // Ensure notification channels are set up on Android 8.0+
+            PrayerNotificationHelper.createNotificationChannel(this)
+        } catch (e: Throwable) {
+            android.util.Log.e("MainActivity", "Notification channel safe fallback: ${e.message}")
+        }
 
         setContent {
             val viewModel: DeenViewModel = viewModel()

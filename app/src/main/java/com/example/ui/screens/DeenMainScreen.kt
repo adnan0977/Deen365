@@ -99,10 +99,10 @@ fun DeenMainScreen(
         val list = state.selectedBottomTabs
         if (list.size >= 5) list.take(5) else listOf(
             MainTab.DASHBOARD,
-            MainTab.NAMAZ,
-            MainTab.AI_GUIDE,
             MainTab.QURAN,
-            MainTab.SETTINGS
+            MainTab.AI_GUIDE,
+            MainTab.HADITH_DUAS,
+            MainTab.MORE
         )
     }
 
@@ -306,7 +306,7 @@ fun DeenMainScreen(
                             // Elevated Center DEEN AI Action Button - Only this item is elevated inside a prominent circle
                             NavigationBarItem(
                                 selected = state.currentTab == MainTab.AI_GUIDE || state.isDeenAiSheetOpen,
-                                onClick = { viewModel.openDeenAiSheet() },
+                                onClick = { viewModel.setTab(MainTab.AI_GUIDE) },
                                 icon = {
                                     Surface(
                                         shape = CircleShape,

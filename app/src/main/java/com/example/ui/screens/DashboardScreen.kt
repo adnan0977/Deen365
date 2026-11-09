@@ -41,6 +41,7 @@ import com.example.data.repository.DuaOfTheDayRepository
 import com.example.data.repository.toDailyDuaItem
 import com.example.domain.CityPreset
 import com.example.domain.PrayerTimeCalculator
+import com.example.ui.components.DailyDhikrDashboardCard
 import com.example.ui.components.HadithOfTheDayHeroCard
 import com.example.ui.components.UnlockProFeatureDialog
 import com.example.ui.screens.names.AllahNameDetailDialog
@@ -57,6 +58,7 @@ fun DashboardScreen(
 ) {
     val context = LocalContext.current
     var showCityDialog by remember { mutableStateOf(false) }
+    var showMethodDialog by remember { mutableStateOf(false) }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -111,8 +113,8 @@ fun DashboardScreen(
                             )
                         )
                         Text(
-                            text = "${state.hijriDate.day} ${state.hijriDate.monthName} ${state.hijriDate.year} AH • ${state.hijriDate.gregorianFormatted}",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "Islamic Spiritual & Life Companion",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.5.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
@@ -176,108 +178,6 @@ fun DashboardScreen(
                         }
                     }
                 }
-
-                // Dedicated, Elegantly Aligned Location Bar
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { showCityDialog = true }
-                        .testTag("dashboard_location_bar")
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            modifier = Modifier.weight(1f)
-                        ) {
-                            Surface(
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                modifier = Modifier.size(32.dp)
-                            ) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        imageVector = Icons.Default.LocationOn,
-                                        contentDescription = "Location",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                }
-                            }
-                            Column {
-                                Text(
-                                    text = "${state.selectedCity.name}, ${state.selectedCity.country}",
-                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1
-                                )
-                                Text(
-                                    text = "Auto-calculated prayer times for this location",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        }
-
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            IconButton(
-                                onClick = {
-                                    locationPermissionLauncher.launch(
-                                        arrayOf(
-                                            Manifest.permission.ACCESS_FINE_LOCATION,
-                                            Manifest.permission.ACCESS_COARSE_LOCATION
-                                        )
-                                    )
-                                },
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(if (state.isUsingDeviceLocation) EmeraldPrimary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceVariant)
-                                    .testTag("dashboard_gps_btn")
-                            ) {
-                                Icon(
-                                    imageVector = if (state.isUsingDeviceLocation) Icons.Default.GpsFixed else Icons.Default.MyLocation,
-                                    contentDescription = "Detect Device Location",
-                                    tint = if (state.isUsingDeviceLocation) EmeraldPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(2.dp),
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { showCityDialog = true }
-                                    .padding(horizontal = 6.dp, vertical = 4.dp)
-                            ) {
-                                Text(
-                                    text = "Change",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = "Change City",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
 
@@ -322,148 +222,31 @@ fun DashboardScreen(
             }
         }
 
-        // Hero Next Prayer & Fasting Card
+        // 🌟 Dedicated M3 Unified Hijri & Gregorian Dual Calendar Card
         item {
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("hero_prayer_card")
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(EmeraldPrimary, EmeraldPrimaryVariant)
-                            )
-                        )
-                        .padding(20.dp)
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = GoldAccent.copy(alpha = 0.2f),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, GoldAccent.copy(alpha = 0.5f))
-                            ) {
-                                Text(
-                                    text = "NEXT PRAYER",
-                                    color = GoldLight,
-                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                                )
-                            }
+            com.example.ui.components.HomeDualCalendarCard(
+                state = state,
+                viewModel = viewModel,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (state.isFastedToday) GoldAccent else Color.White.copy(alpha = 0.18f),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable { viewModel.toggleFasting() }
-                                        .testTag("dashboard_fasting_toggle_pill")
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (state.isFastedToday) Icons.Default.Check else Icons.Default.NightsStay,
-                                            contentDescription = "Sawm Toggle",
-                                            tint = if (state.isFastedToday) EmeraldPrimaryVariant else Color.White,
-                                            modifier = Modifier.size(13.dp)
-                                        )
-                                        Text(
-                                            text = if (state.isFastedToday) "Sawm: ON" else "Sawm: OFF",
-                                            color = if (state.isFastedToday) EmeraldPrimaryVariant else Color.White,
-                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
-                                        )
-                                    }
-                                }
+        // Material 3 Prayer Times Dashboard: Upcoming Prayer, Live Clock & WorkManager Sync
+        item {
+            com.example.ui.components.PrayerTimesDashboard(
+                state = state,
+                viewModel = viewModel,
+                onOpenCitySelector = { showCityDialog = true },
+                onOpenMethodSelector = { showMethodDialog = true }
+            )
+        }
 
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (state.prayerSchedule.isFastingActive) Icons.Default.NightsStay else Icons.Default.WbSunny,
-                                        contentDescription = "Fasting State",
-                                        tint = GoldLight,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Text(
-                                        text = "${liveCountdown.fastingCountdownLabel} ${liveCountdown.fastingCountdownHMS}",
-                                        color = Color.White.copy(alpha = 0.9f),
-                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                                    )
-                                }
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            Column {
-                                Text(
-                                    text = liveCountdown.nextPrayerName,
-                                    style = MaterialTheme.typography.headlineLarge.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Color.White
-                                    )
-                                )
-                                Text(
-                                    text = "in ${liveCountdown.formattedHMS} (${liveCountdown.nextPrayerTimeFormatted})",
-                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                                    color = GoldLight
-                                )
-                            }
-
-                            Button(
-                                onClick = { viewModel.setTab(MainTab.NAMAZ_FASTING) },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = GoldAccent,
-                                    contentColor = EmeraldPrimaryVariant
-                                ),
-                                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
-                            ) {
-                                Text("Timetable", fontWeight = FontWeight.Bold)
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Divider(color = Color.White.copy(alpha = 0.15f))
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        // Compact 5 Prayers Row
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            PrayerMiniBadge("Fajr", state.prayerSchedule.fajr, state.prayerRecord.fajr) { viewModel.togglePrayer("Fajr") }
-                            PrayerMiniBadge("Dhuhr", state.prayerSchedule.dhuhr, state.prayerRecord.dhuhr) { viewModel.togglePrayer("Dhuhr") }
-                            PrayerMiniBadge("Asr", state.prayerSchedule.asr, state.prayerRecord.asr) { viewModel.togglePrayer("Asr") }
-                            PrayerMiniBadge("Maghrib", state.prayerSchedule.maghrib, state.prayerRecord.maghrib) { viewModel.togglePrayer("Maghrib") }
-                            PrayerMiniBadge("Isha", state.prayerSchedule.isha, state.prayerRecord.isha) { viewModel.togglePrayer("Isha") }
-                        }
-                    }
-                }
-            }
+        // Google Ads Reserved Space
+        item {
+            com.example.ui.components.GoogleAdBannerPlaceholder(
+                modifier = Modifier.padding(vertical = 2.dp),
+                adSlotName = "Home Dashboard Banner"
+            )
         }
 
         // Daily Spiritual Reminders & Consistency Card
@@ -781,6 +564,15 @@ fun DashboardScreen(
                 state = state,
                 onPlayAudio = { verse -> viewModel.playRuqyahAudio(verse) },
                 onOpenRuqyah = { viewModel.setTab(MainTab.RUQYAH_HEALING) }
+            )
+        }
+
+        // 🌟 Dedicated Daily Dhikr & Tasbih Counter Card
+        item {
+            Spacer(modifier = Modifier.height(14.dp))
+            DailyDhikrDashboardCard(
+                state = state,
+                viewModel = viewModel
             )
         }
 
@@ -1279,6 +1071,17 @@ fun DashboardScreen(
                 viewModel.selectCity(it)
                 showCityDialog = false
             }
+        )
+    }
+
+    if (showMethodDialog) {
+        com.example.ui.screens.namaz.CalculationMethodDialog(
+            currentMethod = state.selectedCalculationMethod,
+            onSelect = {
+                viewModel.selectCalculationMethod(it)
+                showMethodDialog = false
+            },
+            onDismiss = { showMethodDialog = false }
         )
     }
 
@@ -2639,10 +2442,16 @@ fun MirathCalculatorDashboardCard(
                 onClick = onOpenCalculator,
                 shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
-                modifier = Modifier.fillMaxWidth().testTag("open_mirath_calculator_button")
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("open_mirath_calculator_button")
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Calculate Estate Distribution (Hanafi, Maliki, Shafi'i, Hanbali)", fontWeight = FontWeight.Bold)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text("Calculate Estate Distribution (4 Madhabs)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
                     Icon(Icons.Default.ArrowForward, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
             }

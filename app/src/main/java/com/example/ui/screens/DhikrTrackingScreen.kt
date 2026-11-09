@@ -513,7 +513,8 @@ fun DhikrTrackingScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Celebration Banner if goal is reached!
+                    // Celebration Banner if goal is reached or Milestone badge!
+                    val is33Milestone = currentCount > 0 && currentCount % 33 == 0 && !isGoalCompleted
                     if (isGoalCompleted) {
                         Surface(
                             shape = RoundedCornerShape(12.dp),
@@ -539,6 +540,34 @@ fun DhikrTrackingScreen(
                                     text = "Daily Goal Completed! May Allah accept it.",
                                     style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                     color = EmeraldPrimaryVariant
+                                )
+                            }
+                        }
+                    } else if (is33Milestone) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = EmeraldPrimary.copy(alpha = 0.15f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, EmeraldPrimary.copy(alpha = 0.35f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .animateContentSize()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DoneAll,
+                                    contentDescription = null,
+                                    tint = EmeraldPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "✨ 33-Bead Milestone Reached! ($currentCount recitations)",
+                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = EmeraldPrimary
                                 )
                             }
                         }
@@ -679,7 +708,7 @@ fun DhikrTrackingScreen(
                         FilterChip(
                             selected = state.dhikrVibrationEnabled,
                             onClick = { viewModel.toggleDhikrVibration() },
-                            label = { Text("Vibration", fontSize = 11.sp) },
+                            label = { Text(if (state.dhikrVibrationEnabled) "Haptic Feedback ON" else "Haptic Feedback OFF", fontSize = 11.sp) },
                             leadingIcon = {
                                 Icon(
                                     if (state.dhikrVibrationEnabled) Icons.Default.Vibration else Icons.Default.Smartphone,

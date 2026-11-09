@@ -189,13 +189,22 @@ object MosqueTimingHelper {
             )
 
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (alarmManager.canScheduleExactAlarms()) {
+                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetMillis, pendingIntent)
+                    } else {
+                        alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetMillis, pendingIntent)
+                    }
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetMillis, pendingIntent)
                 } else {
                     alarmManager.setExact(AlarmManager.RTC_WAKEUP, targetMillis, pendingIntent)
                 }
                 Log.d(TAG, "Scheduled walk alarm for ${timing.displayName} in ${timing.preAlarmMinutes}m at $targetMillis")
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                try {
+                    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, targetMillis, pendingIntent)
+                } catch (_: Throwable) {}
                 Log.e(TAG, "Failed to schedule walk alarm: ${e.message}")
             }
         }

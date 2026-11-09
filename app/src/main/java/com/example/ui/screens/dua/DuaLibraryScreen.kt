@@ -1038,28 +1038,48 @@ fun DuaItemCard(
                     }
                 }
 
-                // Learn & Practice Modal Trigger
-                TextButton(
-                    onClick = {
-                        val item = DuaSeedData.DUAS.firstOrNull { it.id == dua.id } ?: com.example.data.seed.DuaItem(
-                            id = dua.id,
-                            title = dua.title,
-                            category = dua.category,
-                            arabicText = dua.arabicText,
-                            transliteration = dua.transliteration,
-                            translation = dua.translation,
-                            explanation = dua.explanation,
-                            reference = dua.reference,
-                            recommendedCount = dua.recommendedCount
-                        )
-                        viewModel.openLearnDua(item)
-                    },
-                    contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
-                    modifier = Modifier.testTag("learn_dua_btn_${dua.id}")
+                // AI Reflect & Learn Actions
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(14.dp), tint = EmeraldPrimary)
-                    Spacer(modifier = Modifier.width(3.dp))
-                    Text("Learn", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EmeraldPrimary))
+                    FilledTonalButton(
+                        onClick = { viewModel.askAiAboutDua(dua) },
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = EmeraldPrimary.copy(alpha = 0.12f),
+                            contentColor = EmeraldPrimary
+                        ),
+                        modifier = Modifier.testTag("ai_insight_dua_btn_${dua.id}")
+                    ) {
+                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(13.dp), tint = EmeraldPrimary)
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("AI Insight", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp))
+                    }
+
+                    TextButton(
+                        onClick = {
+                            val item = DuaSeedData.DUAS.firstOrNull { it.id == dua.id } ?: com.example.data.seed.DuaItem(
+                                id = dua.id,
+                                title = dua.title,
+                                category = dua.category,
+                                arabicText = dua.arabicText,
+                                transliteration = dua.transliteration,
+                                translation = dua.translation,
+                                explanation = dua.explanation,
+                                reference = dua.reference,
+                                recommendedCount = dua.recommendedCount
+                            )
+                            viewModel.openLearnDua(item)
+                        },
+                        contentPadding = PaddingValues(horizontal = 6.dp, vertical = 4.dp),
+                        modifier = Modifier.testTag("learn_dua_btn_${dua.id}")
+                    ) {
+                        Icon(Icons.Default.School, contentDescription = null, modifier = Modifier.size(14.dp), tint = EmeraldPrimary)
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text("Learn", style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold, color = EmeraldPrimary))
+                    }
                 }
             }
         }

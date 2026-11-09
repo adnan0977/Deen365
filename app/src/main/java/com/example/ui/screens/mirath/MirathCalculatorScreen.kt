@@ -381,7 +381,7 @@ fun MirathCalculatorScreen(
                     2 -> {
                         // Section 3: Shares Distribution & 4 Madhab
                         item {
-                            // 4-Madhab Selector
+                            // 4-Madhab Selector in 2x2 Mobile Grid
                             Card(
                                 shape = RoundedCornerShape(14.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)),
@@ -392,17 +392,30 @@ fun MirathCalculatorScreen(
                                         text = "Select Fiqh School (Madhab)",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
                                     )
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Madhab.entries.forEach { m ->
-                                            FilterChip(
-                                                selected = mirath.selectedMadhab == m,
-                                                onClick = { viewModel.setMirathMadhab(m) },
-                                                label = { Text(m.name.lowercase().replaceFirstChar { it.uppercase() }, fontSize = 11.sp) },
-                                                modifier = Modifier.weight(1f).testTag("madhab_chip_${m.name}")
-                                            )
+                                    val madhabPairs = Madhab.entries.chunked(2)
+                                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        madhabPairs.forEach { pair ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                pair.forEach { m ->
+                                                    FilterChip(
+                                                        selected = mirath.selectedMadhab == m,
+                                                        onClick = { viewModel.setMirathMadhab(m) },
+                                                        label = {
+                                                            Text(
+                                                                text = m.name.lowercase().replaceFirstChar { it.uppercase() } + " Fiqh",
+                                                                fontSize = 11.5.sp,
+                                                                fontWeight = if (mirath.selectedMadhab == m) FontWeight.Bold else FontWeight.Medium
+                                                            )
+                                                        },
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .testTag("madhab_chip_${m.name}")
+                                                    )
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -585,11 +598,13 @@ private fun HeirStepperRow(
     onCountChanged: (Int) -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
             Text(arabic, style = MaterialTheme.typography.bodySmall, color = EmeraldPrimary)
         }
@@ -598,24 +613,30 @@ private fun HeirStepperRow(
             IconButton(
                 onClick = { if (count > min) onCountChanged(count - 1) },
                 enabled = count > min,
-                modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Remove, contentDescription = "Decrease", modifier = Modifier.size(18.dp))
             }
 
             Text(
                 text = "$count",
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                modifier = Modifier.widthIn(min = 24.dp),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                modifier = Modifier.widthIn(min = 28.dp),
                 textAlign = TextAlign.Center
             )
 
             IconButton(
                 onClick = { if (count < max) onCountChanged(count + 1) },
                 enabled = count < max,
-                modifier = Modifier.size(36.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant)
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.Add, contentDescription = "Increase", modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -629,18 +650,26 @@ private fun HeirToggleRow(
     onToggle: () -> Unit
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onToggle() },
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { onToggle() }
+            .padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold))
             Text(arabic, style = MaterialTheme.typography.bodySmall, color = EmeraldPrimary)
         }
 
         Switch(
             checked = isActive,
-            onCheckedChange = { onToggle() }
+            onCheckedChange = { onToggle() },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = EmeraldPrimary
+            )
         )
     }
 }

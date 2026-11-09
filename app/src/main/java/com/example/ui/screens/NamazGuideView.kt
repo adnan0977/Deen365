@@ -606,6 +606,54 @@ fun InteractiveStepPlayer(
             }
         }
 
+        // Interactive AI Step Explainer
+        item {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = EmeraldPrimary.copy(alpha = 0.08f),
+                border = androidx.compose.foundation.BorderStroke(0.75.dp, EmeraldPrimary.copy(alpha = 0.3f)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable { viewModel.askAiAboutNamazStep(currentStep) }
+                    .testTag("btn_ask_ai_namaz_step")
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = GoldAccent.copy(alpha = 0.2f),
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                            }
+                        }
+                        Column {
+                            Text(
+                                text = "Ask AI: Spiritual Focus in ${currentStep.title}",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = EmeraldPrimary
+                            )
+                            Text(
+                                text = "Explore inner meanings, Khushu' tips & Fiqh rulings",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(Icons.Default.ChevronRight, contentDescription = null, tint = EmeraldPrimary, modifier = Modifier.size(18.dp))
+                }
+            }
+        }
+
         // Bottom Step Navigation Controls
         item {
             Row(

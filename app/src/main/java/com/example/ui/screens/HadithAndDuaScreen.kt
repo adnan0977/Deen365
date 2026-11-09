@@ -242,6 +242,13 @@ fun HadithAndDuaScreen(
                     state.selectedLearningDua!!.transliteration
                 )
             },
+            onAskAi = {
+                val duaToAsk = state.selectedLearningDua
+                viewModel.openLearnDua(null)
+                if (duaToAsk != null) {
+                    viewModel.askAiAboutDua(duaToAsk)
+                }
+            },
             onDismiss = { viewModel.openLearnDua(null) }
         )
     }
@@ -476,11 +483,20 @@ fun HadithSectionView(
             else -> selectedColl.replaceFirstChar { it.uppercase() }
         }
 
+        val activeHadiths = if (state.currentHadiths.isNotEmpty()) {
+            state.currentHadiths.filter {
+                it.collection.equals(selectedColl, ignoreCase = true) && it.bookNumber == selectedChapter
+            }.ifEmpty { chapterHadiths }
+        } else {
+            chapterHadiths
+        }
+
         com.example.ui.screens.hadith.HadithReaderDetailView(
             collectionId = selectedColl,
             collectionTitle = collTitle,
             chapterNumber = selectedChapter,
-            hadiths = chapterHadiths,
+            hadiths = activeHadiths,
+            isLoading = state.isLoadingHadiths,
             onBack = { viewModel.selectHadithChapterNumber(null) },
             onToggleBookmark = { viewModel.toggleFavoriteHadith(it) },
             onToggleRead = { viewModel.toggleHadithStudied(it) },

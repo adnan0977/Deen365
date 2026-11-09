@@ -499,7 +499,7 @@ fun QiblaCompassCard(
         shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        border = androidx.compose.foundation.BorderStroke(2.dp, cardBorderColor),
+        border = androidx.compose.foundation.BorderStroke(1.dp, cardBorderColor.copy(alpha = 0.5f)),
         modifier = Modifier
             .fillMaxWidth()
             .testTag("qibla_compass_card")

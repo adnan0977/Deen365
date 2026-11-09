@@ -61,36 +61,44 @@ class PrayerNotificationWorker(
          * every 6 hours with a 15-minute flex interval.
          */
         fun enqueuePeriodicPrayerNotificationWork(context: Context) {
-            val constraints = Constraints.Builder()
-                .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
-                .setRequiresBatteryNotLow(false)
-                .build()
+            try {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.NOT_REQUIRED)
+                    .setRequiresBatteryNotLow(false)
+                    .build()
 
-            val periodicRequest = PeriodicWorkRequestBuilder<PrayerNotificationWorker>(
-                repeatInterval = 6,
-                repeatIntervalTimeUnit = TimeUnit.HOURS,
-                flexTimeInterval = 15,
-                flexTimeIntervalUnit = TimeUnit.MINUTES
-            )
-                .setConstraints(constraints)
-                .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
-                .addTag(TAG)
-                .build()
+                val periodicRequest = PeriodicWorkRequestBuilder<PrayerNotificationWorker>(
+                    repeatInterval = 6,
+                    repeatIntervalTimeUnit = TimeUnit.HOURS,
+                    flexTimeInterval = 15,
+                    flexTimeIntervalUnit = TimeUnit.MINUTES
+                )
+                    .setConstraints(constraints)
+                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.MINUTES)
+                    .addTag(TAG)
+                    .build()
 
-            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-                UNIQUE_PERIODIC_WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
-                periodicRequest
-            )
-            Log.d(TAG, "Enqueued periodic WorkManager job: $UNIQUE_PERIODIC_WORK_NAME")
+                WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                    UNIQUE_PERIODIC_WORK_NAME,
+                    ExistingPeriodicWorkPolicy.KEEP,
+                    periodicRequest
+                )
+                Log.d(TAG, "Enqueued periodic WorkManager job: $UNIQUE_PERIODIC_WORK_NAME")
+            } catch (e: Throwable) {
+                Log.w(TAG, "WorkManager could not be enqueued: ${e.message}")
+            }
         }
 
         /**
          * Cancels periodic prayer notification worker if user turns off notifications completely.
          */
         fun cancelPrayerNotificationWork(context: Context) {
-            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_PERIODIC_WORK_NAME)
-            Log.d(TAG, "Cancelled unique WorkManager job: $UNIQUE_PERIODIC_WORK_NAME")
+            try {
+                WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_PERIODIC_WORK_NAME)
+                Log.d(TAG, "Cancelled unique WorkManager job: $UNIQUE_PERIODIC_WORK_NAME")
+            } catch (e: Throwable) {
+                Log.w(TAG, "WorkManager cancel error: ${e.message}")
+            }
         }
     }
 }

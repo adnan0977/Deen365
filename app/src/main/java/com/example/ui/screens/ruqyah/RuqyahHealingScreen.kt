@@ -25,6 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.*
+import com.example.ui.components.RuqyahAudioPlayerCard
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GoldLight
@@ -110,6 +111,13 @@ fun RuqyahHealingScreen(
             contentPadding = PaddingValues(top = 14.dp, bottom = 96.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Live Ruqyah Shariah Audio Player Streamer
+            item {
+                RuqyahAudioPlayerCard(
+                    player = viewModel.ruqyahAudioPlayer
+                )
+            }
+
             // How-to Banner
             item {
                 Card(

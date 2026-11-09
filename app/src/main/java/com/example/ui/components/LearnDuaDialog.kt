@@ -33,6 +33,7 @@ fun LearnDuaDialog(
     dua: DuaItem,
     isPlayingAudio: Boolean,
     onPlayAudio: () -> Unit,
+    onAskAi: (() -> Unit)? = null,
     onDismiss: () -> Unit
 ) {
     var repetitionCount by remember { mutableIntStateOf(0) }
@@ -211,6 +212,21 @@ fun LearnDuaDialog(
                                             style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
+                                        if (onAskAi != null) {
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            OutlinedButton(
+                                                onClick = onAskAi,
+                                                shape = RoundedCornerShape(10.dp),
+                                                colors = ButtonDefaults.outlinedButtonColors(contentColor = EmeraldPrimary),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("learn_dua_ask_ai_btn")
+                                            ) {
+                                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text("Ask AI: Context & Daily Life Relevance", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                            }
+                                        }
                                     }
                                 }
                             }

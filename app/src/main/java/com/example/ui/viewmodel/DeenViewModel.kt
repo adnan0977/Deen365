@@ -56,6 +56,7 @@ import com.example.domain.HijriDate
 import com.example.domain.model.SpiritualGoals
 import com.example.domain.model.UserAvatar
 import com.example.audio.QuranAudioPlayer
+import com.example.audio.RuqyahAudioPlayer
 import com.example.data.model.QuranAudioReciter
 import com.example.data.model.QuranReadingMode
 import com.example.data.model.TafsirItem
@@ -213,16 +214,47 @@ data class SunnahAlimSuiteState(
     val selectedComparativeFiqhTopicId: String? = null
 )
 
+data class MosqueSuiteState(
+    val isMosqueTimingsDialogOpen: Boolean = false,
+    val isGlobalMosqueActive: Boolean = false,
+    val mosqueTimings: List<com.example.domain.MosquePrayerTiming> = emptyList(),
+    val mosqueName: String = "My Local Masjid"
+)
+
+data class ZakatSuiteState(
+    val zakatRates: GoldSilverRates = GoldSilverRates(),
+    val selectedZakatCurrency: CurrencyInfo = CurrencyInfo.ALL_CURRENCIES[0],
+    val selectedZakatNisabStandard: NisabStandard = NisabStandard.SILVER,
+    val zakatAssetInput: ZakatAssetInput = ZakatAssetInput(),
+    val isZakatHawlMet: Boolean = true,
+    val savedZakatRecords: List<SavedZakatRecord> = emptyList(),
+    val isRefreshingZakatRates: Boolean = false,
+    val zakatRateRefreshMessage: String? = null
+)
+
+data class SpecializedModulesSuiteState(
+    val asmaUlHusnaState: AsmaUlHusnaState = AsmaUlHusnaState(),
+    val hajjUmrahState: HajjUmrahState = HajjUmrahState(),
+    val qadaSalahState: QadaSalahState = QadaSalahState(),
+    val mirathState: MirathCalculatorState = MirathCalculatorState(),
+    val hijriCalendarState: HijriCalendarState = HijriCalendarState(),
+    val halalFoodState: HalalFoodState = HalalFoodState(),
+    val haramainLiveState: HaramainLiveState = HaramainLiveState(),
+    val khatamPlannerState: KhatamPlannerState = KhatamPlannerState(),
+    val ruqyahState: RuqyahState = RuqyahState(),
+    val babyNamesState: BabyNamesState = BabyNamesState()
+)
+
 data class DeenUiState(
     val currentTab: MainTab = MainTab.DASHBOARD,
     val previousTab: MainTab = MainTab.DASHBOARD,
     val isSettingsDialogOpen: Boolean = false,
     val selectedBottomTabs: List<MainTab> = listOf(
         MainTab.DASHBOARD,
-        MainTab.NAMAZ,
-        MainTab.AI_GUIDE,
         MainTab.QURAN,
-        MainTab.SETTINGS
+        MainTab.AI_GUIDE,
+        MainTab.HADITH_DUAS,
+        MainTab.MORE
     ),
     val selectedThemeType: AppThemeType = AppThemeType.EMERALD,
     val darkModeConfig: DarkModeConfig = DarkModeConfig.SYSTEM,
@@ -313,8 +345,6 @@ data class DeenUiState(
     val selectedHadithCategory: String = "All",
     val selectedHadithNarrator: String = "All",
     val hadithBrowserCollection: String = "All",
-    val hadithBrowserCategories: List<String> = HadithSeedData.CATEGORIES,
-    val hadithBrowserNarrators: List<String> = HadithSeedData.PROMINENT_NARRATORS,
     val todayHadith: DailyHadithItem = HadithOfTheDayRepository.getTodayHadithSync(0),
     val todayHadithDayOffset: Int = 0,
 
@@ -334,7 +364,6 @@ data class DeenUiState(
     val duaViewModeTab: Int = 0, // 0: Categories Explorer, 1: All Invocations, 2: Bookmarks & Folders
     val selectedDuaForOrganizing: DuaEntity? = null,
     val hadithDuaActiveSubTab: Int = 0, // 0: Hadith, 1: Duas, 2: Namaz Guide, 3: Tasbih
-    val tasbihPresets: List<TasbihPreset> = DuaSeedData.TASBIH_PRESETS,
     val selectedTasbih: TasbihPreset = DuaSeedData.TASBIH_PRESETS[0],
     val tasbihCount: Int = 0,
     val tasbihLap: Int = 1,
@@ -342,9 +371,7 @@ data class DeenUiState(
     val duaProgressCounts: Map<String, Int> = emptyMap(),
 
     // Interactive Namaz & Dua Audio Guide
-    val prayerGuides: List<PrayerGuide> = NamazGuideData.PRAYERS,
     val selectedPrayerGuide: PrayerGuide = NamazGuideData.PRAYERS[0],
-    val namazSteps: List<NamazStep> = NamazGuideData.STEPS,
     val currentNamazStepIndex: Int = 0,
     val isNamazGuideActive: Boolean = false,
     val playingAudioId: String? = null,
@@ -448,11 +475,8 @@ data class DeenUiState(
     val proModuleIds: Set<String> = setOf("mosques"),
     val proModuleUnlockPrompt: HomeGridModule? = null,
 
-    // Mosque Timings & Custom Alarms
-    val isMosqueTimingsDialogOpen: Boolean = false,
-    val isGlobalMosqueActive: Boolean = false,
-    val mosqueTimings: List<com.example.domain.MosquePrayerTiming> = emptyList(),
-    val mosqueName: String = "My Local Masjid",
+    // Mosque Timings & Custom Alarms Suite
+    val mosqueSuiteState: MosqueSuiteState = MosqueSuiteState(),
 
     // AI Quran Verse Explainer
     val isAyahExplainerOpen: Boolean = false,
@@ -507,7 +531,6 @@ data class DeenUiState(
     val isModerationPanelOpen: Boolean = false,
 
     // Interactive Learning Modules
-    val learningTracks: List<LearningTrack> = InteractiveLearningModulesData.ALL_TRACKS,
     val selectedLearningTrackId: String? = null,
     val activeLearningLessonId: String? = null,
     val activeQuizLessonId: String? = null,
@@ -516,7 +539,6 @@ data class DeenUiState(
     val completedLessonIds: Set<String> = emptySet(),
 
     // Sahaba Biographies
-    val sahabaList: List<DetailedSahabiBiography> = SahabaBiographiesSeedData.ALL_SAHABA,
     val selectedSahabiId: String? = null,
     val sahabaFilterCategory: String = "All",
 
@@ -526,28 +548,112 @@ data class DeenUiState(
     val aiGuideFocusArea: String = "salah_consistency",
     val completedPracticalDeeds: Set<Int> = emptySet(),
 
-    // Zakat Calculator Suite (Live Pricing & Hadith Compliance)
-    val zakatRates: GoldSilverRates = GoldSilverRates(),
-    val selectedZakatCurrency: CurrencyInfo = CurrencyInfo.ALL_CURRENCIES[0],
-    val selectedZakatNisabStandard: NisabStandard = NisabStandard.SILVER,
-    val zakatAssetInput: ZakatAssetInput = ZakatAssetInput(),
-    val isZakatHawlMet: Boolean = true,
-    val savedZakatRecords: List<SavedZakatRecord> = emptyList(),
-    val isRefreshingZakatRates: Boolean = false,
-    val zakatRateRefreshMessage: String? = null,
+    // Zakat Calculator Suite
+    val zakatSuiteState: ZakatSuiteState = ZakatSuiteState(),
 
     // Islam360 & Muslim Pro Extended Suites
-    val asmaUlHusnaState: AsmaUlHusnaState = AsmaUlHusnaState(),
-    val hajjUmrahState: HajjUmrahState = HajjUmrahState(),
-    val qadaSalahState: QadaSalahState = QadaSalahState(),
-    val mirathState: MirathCalculatorState = MirathCalculatorState(),
-    val hijriCalendarState: HijriCalendarState = HijriCalendarState(),
-    val halalFoodState: HalalFoodState = HalalFoodState(),
-    val haramainLiveState: HaramainLiveState = HaramainLiveState(),
-    val khatamPlannerState: KhatamPlannerState = KhatamPlannerState(),
-    val ruqyahState: RuqyahState = RuqyahState(),
-    val babyNamesState: BabyNamesState = BabyNamesState()
+    val specializedModulesState: SpecializedModulesSuiteState = SpecializedModulesSuiteState()
 ) {
+    // Delegated getters & constant lists for extracted suites
+    val hadithBrowserCategories: List<String> = HadithSeedData.CATEGORIES
+    val hadithBrowserNarrators: List<String> = HadithSeedData.PROMINENT_NARRATORS
+    val tasbihPresets: List<TasbihPreset> = DuaSeedData.TASBIH_PRESETS
+    val prayerGuides: List<PrayerGuide> = NamazGuideData.PRAYERS
+    val namazSteps: List<NamazStep> = NamazGuideData.STEPS
+    val learningTracks: List<LearningTrack> = InteractiveLearningModulesData.ALL_TRACKS
+    val sahabaList: List<DetailedSahabiBiography> = SahabaBiographiesSeedData.ALL_SAHABA
+
+    // Delegated getters for Mosque Suite
+    val isMosqueTimingsDialogOpen: Boolean get() = mosqueSuiteState.isMosqueTimingsDialogOpen
+    val isGlobalMosqueActive: Boolean get() = mosqueSuiteState.isGlobalMosqueActive
+    val mosqueTimings: List<com.example.domain.MosquePrayerTiming> get() = mosqueSuiteState.mosqueTimings
+    val mosqueName: String get() = mosqueSuiteState.mosqueName
+
+    // Delegated getters for Zakat Suite
+    val zakatRates: GoldSilverRates get() = zakatSuiteState.zakatRates
+    val selectedZakatCurrency: CurrencyInfo get() = zakatSuiteState.selectedZakatCurrency
+    val selectedZakatNisabStandard: NisabStandard get() = zakatSuiteState.selectedZakatNisabStandard
+    val zakatAssetInput: ZakatAssetInput get() = zakatSuiteState.zakatAssetInput
+    val isZakatHawlMet: Boolean get() = zakatSuiteState.isZakatHawlMet
+    val savedZakatRecords: List<SavedZakatRecord> get() = zakatSuiteState.savedZakatRecords
+    val isRefreshingZakatRates: Boolean get() = zakatSuiteState.isRefreshingZakatRates
+    val zakatRateRefreshMessage: String? get() = zakatSuiteState.zakatRateRefreshMessage
+
+    // Delegated getters for Specialized Extended Suites
+    val asmaUlHusnaState: AsmaUlHusnaState get() = specializedModulesState.asmaUlHusnaState
+    val hajjUmrahState: HajjUmrahState get() = specializedModulesState.hajjUmrahState
+    val qadaSalahState: QadaSalahState get() = specializedModulesState.qadaSalahState
+    val mirathState: MirathCalculatorState get() = specializedModulesState.mirathState
+    val hijriCalendarState: HijriCalendarState get() = specializedModulesState.hijriCalendarState
+    val halalFoodState: HalalFoodState get() = specializedModulesState.halalFoodState
+    val haramainLiveState: HaramainLiveState get() = specializedModulesState.haramainLiveState
+    val khatamPlannerState: KhatamPlannerState get() = specializedModulesState.khatamPlannerState
+    val ruqyahState: RuqyahState get() = specializedModulesState.ruqyahState
+    val babyNamesState: BabyNamesState get() = specializedModulesState.babyNamesState
+
+    // Compact overloaded copy methods for modularized sub-states
+    fun copy(
+        isMosqueTimingsDialogOpen: Boolean = mosqueSuiteState.isMosqueTimingsDialogOpen,
+        isGlobalMosqueActive: Boolean = mosqueSuiteState.isGlobalMosqueActive,
+        mosqueTimings: List<com.example.domain.MosquePrayerTiming> = mosqueSuiteState.mosqueTimings,
+        mosqueName: String = mosqueSuiteState.mosqueName
+    ): DeenUiState = copy(
+        mosqueSuiteState = mosqueSuiteState.copy(
+            isMosqueTimingsDialogOpen = isMosqueTimingsDialogOpen,
+            isGlobalMosqueActive = isGlobalMosqueActive,
+            mosqueTimings = mosqueTimings,
+            mosqueName = mosqueName
+        )
+    )
+
+    fun copy(
+        zakatRates: GoldSilverRates = zakatSuiteState.zakatRates,
+        selectedZakatCurrency: CurrencyInfo = zakatSuiteState.selectedZakatCurrency,
+        selectedZakatNisabStandard: NisabStandard = zakatSuiteState.selectedZakatNisabStandard,
+        zakatAssetInput: ZakatAssetInput = zakatSuiteState.zakatAssetInput,
+        isZakatHawlMet: Boolean = zakatSuiteState.isZakatHawlMet,
+        savedZakatRecords: List<SavedZakatRecord> = zakatSuiteState.savedZakatRecords,
+        isRefreshingZakatRates: Boolean = zakatSuiteState.isRefreshingZakatRates,
+        zakatRateRefreshMessage: String? = zakatSuiteState.zakatRateRefreshMessage
+    ): DeenUiState = copy(
+        zakatSuiteState = zakatSuiteState.copy(
+            zakatRates = zakatRates,
+            selectedZakatCurrency = selectedZakatCurrency,
+            selectedZakatNisabStandard = selectedZakatNisabStandard,
+            zakatAssetInput = zakatAssetInput,
+            isZakatHawlMet = isZakatHawlMet,
+            savedZakatRecords = savedZakatRecords,
+            isRefreshingZakatRates = isRefreshingZakatRates,
+            zakatRateRefreshMessage = zakatRateRefreshMessage
+        )
+    )
+
+    fun copy(
+        asmaUlHusnaState: AsmaUlHusnaState = specializedModulesState.asmaUlHusnaState,
+        hajjUmrahState: HajjUmrahState = specializedModulesState.hajjUmrahState,
+        qadaSalahState: QadaSalahState = specializedModulesState.qadaSalahState,
+        mirathState: MirathCalculatorState = specializedModulesState.mirathState,
+        hijriCalendarState: HijriCalendarState = specializedModulesState.hijriCalendarState,
+        halalFoodState: HalalFoodState = specializedModulesState.halalFoodState,
+        haramainLiveState: HaramainLiveState = specializedModulesState.haramainLiveState,
+        khatamPlannerState: KhatamPlannerState = specializedModulesState.khatamPlannerState,
+        ruqyahState: RuqyahState = specializedModulesState.ruqyahState,
+        babyNamesState: BabyNamesState = specializedModulesState.babyNamesState
+    ): DeenUiState = copy(
+        specializedModulesState = specializedModulesState.copy(
+            asmaUlHusnaState = asmaUlHusnaState,
+            hajjUmrahState = hajjUmrahState,
+            qadaSalahState = qadaSalahState,
+            mirathState = mirathState,
+            hijriCalendarState = hijriCalendarState,
+            halalFoodState = halalFoodState,
+            haramainLiveState = haramainLiveState,
+            khatamPlannerState = khatamPlannerState,
+            ruqyahState = ruqyahState,
+            babyNamesState = babyNamesState
+        )
+    )
+
     // Delegated getters for Quran Suite
     val isRabbanaDialogOpen: Boolean get() = quranSuiteState.isRabbanaDialogOpen
     val isSajdahVersesDialogOpen: Boolean get() = quranSuiteState.isSajdahVersesDialogOpen
@@ -622,6 +728,7 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
     private val qiblaSensorManager = QiblaSensorManager(application)
     private val audioManager = AudioRecitationManager(application)
     private val quranAudioPlayer = QuranAudioPlayer(application)
+    val ruqyahAudioPlayer = RuqyahAudioPlayer(application)
     val userRepo = UserRepository(viewModelScope)
     val deenCoinsRepo = DeenCoinsRepository(application)
     val salahAudioPlayer = SalahAudioPlayer.getInstance(application)
@@ -637,31 +744,40 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
     val uiState: StateFlow<DeenUiState> = _uiState.asStateFlow()
 
     init {
-        loadInitialData()
-        observeTracker()
-        observeQiblaSensors()
-        observeDailyReflection()
-        observeAudioPlayback()
-        observeVideos()
-        observeUserHabits()
-        observeDhikrTracker()
-        observeUserProfile()
-        observeDeenCoins()
-        observeSalahAudio()
-        observeNamazOffline()
-        observeHadithLearningProgress()
-        observeKitabProgress()
-        observeDuas()
-        observeCommunityData()
-        loadHomeGridOrder()
-        loadThemePreferences()
-        loadLocalSpiritualGoals()
-        autoCachePrayerIfNeeded(_uiState.value.selectedPrayerProcessId)
-        loadPersonalizedSpiritualGuidance()
-        observeQuranStudyData()
-        observeZakatData()
-        observeQadaSalah()
-        initTextToSpeech(application)
+        val safeLaunch: (String, () -> Unit) -> Unit = { name, block ->
+            try {
+                block()
+            } catch (e: Throwable) {
+                Log.e("DeenViewModel", "Error in init step [$name]: ${e.message}", e)
+            }
+        }
+
+        safeLaunch("prayerNotifications") { com.example.worker.PrayerNotificationWorker.enqueuePeriodicPrayerNotificationWork(application) }
+        safeLaunch("loadInitialData") { loadInitialData() }
+        safeLaunch("observeTracker") { observeTracker() }
+        safeLaunch("observeQiblaSensors") { observeQiblaSensors() }
+        safeLaunch("observeDailyReflection") { observeDailyReflection() }
+        safeLaunch("observeAudioPlayback") { observeAudioPlayback() }
+        safeLaunch("observeVideos") { observeVideos() }
+        safeLaunch("observeUserHabits") { observeUserHabits() }
+        safeLaunch("observeDhikrTracker") { observeDhikrTracker() }
+        safeLaunch("observeUserProfile") { observeUserProfile() }
+        safeLaunch("observeDeenCoins") { observeDeenCoins() }
+        safeLaunch("observeSalahAudio") { observeSalahAudio() }
+        safeLaunch("observeNamazOffline") { observeNamazOffline() }
+        safeLaunch("observeHadithLearningProgress") { observeHadithLearningProgress() }
+        safeLaunch("observeKitabProgress") { observeKitabProgress() }
+        safeLaunch("observeDuas") { observeDuas() }
+        safeLaunch("observeCommunityData") { observeCommunityData() }
+        safeLaunch("loadHomeGridOrder") { loadHomeGridOrder() }
+        safeLaunch("loadThemePreferences") { loadThemePreferences() }
+        safeLaunch("loadLocalSpiritualGoals") { loadLocalSpiritualGoals() }
+        safeLaunch("autoCachePrayerIfNeeded") { autoCachePrayerIfNeeded(_uiState.value.selectedPrayerProcessId) }
+        safeLaunch("loadPersonalizedSpiritualGuidance") { loadPersonalizedSpiritualGuidance() }
+        safeLaunch("observeQuranStudyData") { observeQuranStudyData() }
+        safeLaunch("observeZakatData") { observeZakatData() }
+        safeLaunch("observeQadaSalah") { observeQadaSalah() }
+        safeLaunch("initTextToSpeech") { initTextToSpeech(application) }
     }
 
     private fun observeZakatData() {
@@ -1192,7 +1308,15 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun loadInitialData() {
         val initialCity = PrayerTimeCalculator.POPULAR_CITIES[0]
-        val schedule = PrayerTimeCalculator.calculateSchedule(initialCity)
+        val app = getApplication<Application>()
+        val prefs = app.getSharedPreferences("deen365_prefs", Context.MODE_PRIVATE)
+        val savedMethodId = prefs.getString("selected_method_id", CalculationMethod.KARACHI.name)
+        val initialMethod = try {
+            CalculationMethod.valueOf(savedMethodId ?: CalculationMethod.KARACHI.name)
+        } catch (_: Exception) {
+            CalculationMethod.KARACHI
+        }
+        val schedule = PrayerTimeCalculator.calculateSchedule(initialCity, method = initialMethod)
         val bearing = QiblaCalculator.calculateQiblaBearing(initialCity.latitude, initialCity.longitude)
         qiblaSensorManager.setLocation(initialCity.latitude, initialCity.longitude)
         val hijri = IslamicCalendarHelper.getTodayHijriDate()
@@ -1202,7 +1326,6 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         // Load default offline AI reflection
         val initialReflection = GeminiSpiritualService.getOfflineSpiritualWisdom(AiCategory.DAILY_REFLECTION, "")
 
-        val app = getApplication<Application>()
         val initialMosqueName = com.example.notification.MosqueTimingHelper.getMosqueName(app)
         val isGlobalMosque = com.example.notification.MosqueTimingHelper.isGlobalMosqueActive(app)
         val initialTimings = com.example.notification.MosqueTimingHelper.getMosqueTimings(app, schedule)
@@ -1213,6 +1336,7 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update {
             it.copy(
                 selectedCity = initialCity,
+                selectedCalculationMethod = initialMethod,
                 prayerSchedule = schedule,
                 qiblaBearing = bearing,
                 hijriDate = hijri,
@@ -1220,16 +1344,18 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
                 hadithCollections = collections,
                 currentAiGuidance = initialReflection,
                 aiGuidanceHistory = listOf(initialReflection),
-                mosqueName = initialMosqueName,
-                isGlobalMosqueActive = isGlobalMosque,
-                mosqueTimings = initialTimings,
+                mosqueSuiteState = it.mosqueSuiteState.copy(
+                    mosqueName = initialMosqueName,
+                    isGlobalMosqueActive = isGlobalMosque,
+                    mosqueTimings = initialTimings
+                ),
                 hadithDuaAiResult = initialHadithAi,
                 personalizedGuidanceResult = initialPersonalGuidance
             )
         }
 
-        // Preload default Hadiths for 40 Nawawi
-        selectHadithBook("nawawi", 1)
+        // Quran and Hadiths are fetched via API on-demand when each Surah or Book is opened
+        // and stored into Room DB dynamically.
 
         // Store daily prayer times in Room for offline access
         viewModelScope.launch {
@@ -1363,6 +1489,7 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         qiblaSensorManager.stopListening()
         audioManager.shutdown()
         quranAudioPlayer.shutdown()
+        ruqyahAudioPlayer.shutdown()
     }
 
     fun setTab(tab: MainTab) {
@@ -1439,6 +1566,8 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
             asrMethod = asrMethod,
             isUsingGpsLocation = isGps
         )
+        val prefs = getApplication<Application>().getSharedPreferences("deen365_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("selected_method_id", method.name).apply()
         _uiState.update {
             it.copy(
                 selectedCalculationMethod = method,
@@ -1691,6 +1820,12 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
 
     fun triggerTestPrayerNotification(context: Context = getApplication(), prayerName: String = "Asr") {
         PrayerNotificationSchedulerService.sendTestNotification(context, prayerName)
+    }
+
+    fun refreshPrayerWorkManagerSync(context: Context = getApplication()) {
+        com.example.worker.PrayerNotificationWorker.enqueuePeriodicPrayerNotificationWork(context)
+        PrayerNotificationSchedulerService.startScheduling(context, _uiState.value.isUsingDeviceLocation)
+        updatePrayerNotificationSchedule(_uiState.value.prayerSchedule)
     }
 
     fun toggleSunsetFastingReminder(enabled: Boolean, context: Context = getApplication()) {
@@ -2154,8 +2289,8 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         val total = _uiState.value.totalTasbihCount + 1
 
         if (currentCount >= target) {
-            // Target achieved chime / vibration
-            triggerHaptic(120)
+            // Target achieved celebration! Distinct triple-pulse crescendo
+            triggerCelebrationHaptic()
             _uiState.update {
                 it.copy(
                     tasbihCount = 0,
@@ -2163,8 +2298,18 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
                     totalTasbihCount = total
                 )
             }
+        } else if (currentCount > 0 && currentCount % 33 == 0) {
+            // Physical milestone confirmation at 33, 66, 99
+            triggerMilestoneHaptic()
+            _uiState.update {
+                it.copy(
+                    tasbihCount = currentCount,
+                    totalTasbihCount = total
+                )
+            }
         } else {
-            triggerHaptic(30)
+            // Crisp tactile click on each bead increment
+            triggerBeadHaptic()
             _uiState.update {
                 it.copy(
                     tasbihCount = currentCount,
@@ -2987,8 +3132,15 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun askAiAboutHadith(hadith: HadithEntity) {
-        val query = "Reflect on this Hadith from ${hadith.collection} (${hadith.narrator}): '${hadith.translation}'. How can I apply this Prophetic character today?"
-        searchHadithDuaCompanion(query)
+        val query = "Provide an in-depth spiritual explanation of this Hadith from ${hadith.collection} (${hadith.narrator}): '${hadith.translation}'. What is its classical Sharh, historical context (Asbab al-Wurud), and practical application in modern daily life?"
+        _uiState.update {
+            it.copy(
+                currentTab = MainTab.AI_GUIDE,
+                aiCategory = AiCategory.HADITH_INSIGHT,
+                aiInputQuery = query
+            )
+        }
+        requestAiGuidance(AiCategory.HADITH_INSIGHT, query)
     }
 
     fun generatePersonalizedSpiritualGuidance() {
@@ -3103,7 +3255,15 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun askAiAboutDua(dua: DuaItem) {
-        val query = "Reflect on this authentic supplication: '${dua.title}' (${dua.category}) - Arabic: '${dua.arabicText}' - Translation: '${dua.translation}'. Reference: ${dua.reference}. What is its spiritual depth, hadith context, and practical action advice?"
+        val query = "Provide an in-depth spiritual reflection on this authentic supplication:\n" +
+                "• Title: '${dua.title}' (Category: ${dua.category})\n" +
+                "• Arabic: '${dua.arabicText}'\n" +
+                "• Translation: '${dua.translation}'\n" +
+                "• Source/Hadith Reference: ${dua.reference}\n\n" +
+                "Please explain:\n" +
+                "1. Classical scholarly explanation and deep linguistic meanings\n" +
+                "2. Historical context: When and why the Prophet ﷺ or Quran taught this Dua\n" +
+                "3. Practical relevance to modern daily life: How and when Muslims should apply and recite this today"
         _uiState.update {
             it.copy(
                 currentTab = MainTab.AI_GUIDE,
@@ -3112,6 +3272,22 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         requestAiGuidance(AiCategory.DUA_EXPLORATION, query)
+    }
+
+    fun askAiAboutDua(dua: DuaEntity) {
+        askAiAboutDua(
+            DuaItem(
+                id = dua.id,
+                title = dua.title,
+                category = dua.category,
+                arabicText = dua.arabicText,
+                transliteration = dua.transliteration,
+                translation = dua.translation,
+                explanation = dua.explanation,
+                reference = dua.reference,
+                recommendedCount = dua.recommendedCount
+            )
+        )
     }
 
     fun askAiAboutNamazStep(step: NamazStep) {
@@ -3126,18 +3302,47 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         requestAiGuidance(AiCategory.NAMAZ_ADVICE, query)
     }
 
-    private fun triggerHaptic(durationMs: Long) {
+    fun askAiAboutFasting(questionOrTopic: String) {
+        val query = "Provide authentic Islamic guidance and Fiqh rulings regarding fasting: '$questionOrTopic'. Include Quran and Sunnah references, rulings across madhabs if applicable, and practical observance advice."
+        _uiState.update {
+            it.copy(
+                currentTab = MainTab.AI_GUIDE,
+                aiCategory = AiCategory.FASTING_GUIDE,
+                aiInputQuery = query
+            )
+        }
+        requestAiGuidance(AiCategory.FASTING_GUIDE, query)
+    }
+
+    fun askAiAboutPrayerTimingsOrMethod(questionOrTopic: String) {
+        val query = "Provide clear, authentic Islamic guidance regarding Salah prayer timings, calculation methods, or prayer performance: '$questionOrTopic'. Explain the Sunnah practice, Fiqh wisdom, and tips for attaining Khushu' (humility)."
+        _uiState.update {
+            it.copy(
+                currentTab = MainTab.AI_GUIDE,
+                aiCategory = AiCategory.NAMAZ_ADVICE,
+                aiInputQuery = query
+            )
+        }
+        requestAiGuidance(AiCategory.NAMAZ_ADVICE, query)
+    }
+
+    fun triggerHaptic(durationMs: Long) {
         try {
             val ctx = getApplication<Application>()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val vibratorManager = ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-                vibratorManager?.defaultVibrator?.vibrate(
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            } ?: return
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(
                     VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE)
                 )
             } else {
                 @Suppress("DEPRECATION")
-                val vibrator = ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                vibrator?.vibrate(durationMs)
+                vibrator.vibrate(durationMs)
             }
         } catch (_: Exception) {}
     }
@@ -3168,16 +3373,12 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             videoRepo.getUserHabitFlow().collect { habit ->
                 if (habit != null) {
-                    val savedTabNames = habit.getSelectedBottomTabNames()
-                    val parsedTabs = savedTabNames.mapNotNull { name ->
-                        try { MainTab.valueOf(name) } catch (_: Exception) { null }
-                    }.filter { it != MainTab.AI_GUIDE && it != MainTab.MORE && it != MainTab.SETTINGS }.take(4)
-
-                    val resolvedTabs = if (parsedTabs.size == 4) parsedTabs else listOf(
+                    val resolvedTabs = listOf(
                         MainTab.DASHBOARD,
                         MainTab.QURAN,
-                        MainTab.VIDEOS,
-                        MainTab.NAMAZ_FASTING
+                        MainTab.AI_GUIDE,
+                        MainTab.HADITH_DUAS,
+                        MainTab.MORE
                     )
 
                     _uiState.update {
@@ -3409,10 +3610,14 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             val newCount = dhikrRepo.incrementDhikr(dhikrId, todayStr, amount, goal)
             if (previousCount < goal && newCount >= goal) {
-                // Reached daily goal milestone!
+                // Reached daily goal milestone! Celebratory crescendo vibration pattern
                 triggerCelebrationHaptic()
+            } else if (newCount > 0 && (newCount % 33 == 0 || (newCount / 33 > previousCount / 33) || (newCount >= 100 && newCount % 100 == 0))) {
+                // Milestone reached (every 33 beads or round 100s)
+                triggerMilestoneHaptic()
             } else {
-                triggerDhikrHaptic(30)
+                // Physical tactile click on each bead increment
+                triggerBeadHaptic()
             }
             playBeadSound()
         }
@@ -3470,29 +3675,83 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         playBeadSound()
     }
 
-    private fun triggerDhikrHaptic(durationMs: Long) {
+    fun triggerDhikrHaptic(durationMs: Long) {
         if (!_uiState.value.dhikrVibrationEnabled) return
         triggerHaptic(durationMs)
     }
 
-    private fun triggerCelebrationHaptic() {
+    fun triggerBeadHaptic() {
         if (!_uiState.value.dhikrVibrationEnabled) return
         try {
             val ctx = getApplication<Application>()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
-                } else {
-                    @Suppress("DEPRECATION")
-                    ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                }
-                vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 80, 80, 140), -1))
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
             } else {
                 @Suppress("DEPRECATION")
-                val vibrator = ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                vibrator?.vibrate(200)
+                ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            } ?: return
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    vibrator.vibrate(VibrationEffect.createPredefined(VibrationEffect.EFFECT_CLICK))
+                } catch (_: Exception) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(25L, VibrationEffect.DEFAULT_AMPLITUDE))
+                }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(VibrationEffect.createOneShot(25L, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(25L)
             }
-        } catch (_: Exception) {}
+        } catch (_: Exception) {
+            triggerHaptic(25L)
+        }
+    }
+
+    fun triggerMilestoneHaptic() {
+        if (!_uiState.value.dhikrVibrationEnabled) return
+        try {
+            val ctx = getApplication<Application>()
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            } ?: return
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Two distinct pulses: [0ms delay, 45ms buzz, 55ms pause, 75ms buzz]
+                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 45, 55, 75), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(100L)
+            }
+        } catch (_: Exception) {
+            triggerHaptic(80L)
+        }
+    }
+
+    fun triggerCelebrationHaptic() {
+        if (!_uiState.value.dhikrVibrationEnabled) return
+        try {
+            val ctx = getApplication<Application>()
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                (ctx.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                ctx.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+            } ?: return
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                // Triple crescendo pattern: [0ms delay, 60ms buzz, 50ms pause, 90ms buzz, 50ms pause, 140ms buzz]
+                vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 60, 50, 90, 50, 140), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(250L)
+            }
+        } catch (_: Exception) {
+            triggerHaptic(150L)
+        }
     }
 
     private fun playBeadSound() {
@@ -4091,6 +4350,10 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
                     selectedHadithChapterNumber = chapterNumber
                 )
             )
+        }
+        if (chapterNumber != null) {
+            val coll = _uiState.value.selectedHadithCollectionDetail ?: _uiState.value.selectedCollectionId
+            selectHadithBook(coll, chapterNumber)
         }
         triggerHaptic(30)
     }
@@ -5005,10 +5268,20 @@ class DeenViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update {
             it.copy(ruqyahState = it.ruqyahState.copy(currentlyPlayingVerseId = verse.id))
         }
-        try {
-            textToSpeech?.speak(verse.arabic, TextToSpeech.QUEUE_FLUSH, null, "ruqyah_${verse.id}")
-        } catch (ignored: Exception) {}
+        val matchedTrack = com.example.data.model.RuqyahAudioCatalog.CURATED_TRACKS.find { it.category == verse.category }
+            ?: com.example.data.model.RuqyahAudioCatalog.CURATED_TRACKS.first()
+        ruqyahAudioPlayer.playTrack(matchedTrack)
         triggerHaptic(25)
+    }
+
+    fun playRuqyahTrack(track: com.example.data.model.RuqyahAudioTrack) {
+        ruqyahAudioPlayer.playTrack(track)
+        triggerHaptic(20)
+    }
+
+    fun streamCustomRuqyahUrl(url: String, title: String? = null, reciter: String? = null) {
+        ruqyahAudioPlayer.streamRemoteUrl(url, title, reciter)
+        triggerHaptic(20)
     }
 
     // ==========================================

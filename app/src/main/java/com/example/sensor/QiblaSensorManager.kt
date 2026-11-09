@@ -29,14 +29,30 @@ data class QiblaSensorData(
 
 class QiblaSensorManager(context: Context) : SensorEventListener {
 
-    private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-    private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-    private val magnetometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
-    private val rotationVectorSensor: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+    private val sensorManager: SensorManager? = try {
+        context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+    } catch (_: Throwable) {
+        null
+    }
+    private val accelerometer: Sensor? = try {
+        sensorManager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    } catch (_: Throwable) {
+        null
+    }
+    private val magnetometer: Sensor? = try {
+        sensorManager?.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD)
+    } catch (_: Throwable) {
+        null
+    }
+    private val rotationVectorSensor: Sensor? = try {
+        sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+    } catch (_: Throwable) {
+        null
+    }
 
     private val _sensorData = MutableStateFlow(
         QiblaSensorData(
-            isSensorAvailable = (accelerometer != null && magnetometer != null) || rotationVectorSensor != null
+            isSensorAvailable = ((accelerometer != null && magnetometer != null) || rotationVectorSensor != null) && sensorManager != null
         )
     )
     val sensorData: StateFlow<QiblaSensorData> = _sensorData.asStateFlow()
@@ -66,40 +82,47 @@ class QiblaSensorManager(context: Context) : SensorEventListener {
                 System.currentTimeMillis()
             )
             currentDeclination = gmf.declination
-        } catch (_: Exception) {
+        } catch (_: Throwable) {
             currentDeclination = 0f
         }
     }
 
     fun startListening() {
         if (isListening) return
+        val sm = sensorManager ?: return
 
-        if (rotationVectorSensor != null) {
-            sensorManager.registerListener(
-                this,
-                rotationVectorSensor,
-                SensorManager.SENSOR_DELAY_UI
-            )
-            // Also register magnetometer for field strength interference detection
-            magnetometer?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+        try {
+            if (rotationVectorSensor != null) {
+                sm.registerListener(
+                    this,
+                    rotationVectorSensor,
+                    SensorManager.SENSOR_DELAY_UI
+                )
+                // Also register magnetometer for field strength interference detection
+                magnetometer?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+                }
+                activeSensorType = "Hardware Rotation Vector (Fused)"
+            } else {
+                accelerometer?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+                }
+                magnetometer?.let {
+                    sm.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
+                }
+                activeSensorType = "Accelerometer + Magnetometer"
             }
-            activeSensorType = "Hardware Rotation Vector (Fused)"
-        } else {
-            accelerometer?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-            }
-            magnetometer?.let {
-                sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI)
-            }
-            activeSensorType = "Accelerometer + Magnetometer"
+            isListening = true
+        } catch (_: Throwable) {
+            isListening = false
         }
-        isListening = true
     }
 
     fun stopListening() {
         if (!isListening) return
-        sensorManager.unregisterListener(this)
+        try {
+            sensorManager?.unregisterListener(this)
+        } catch (_: Throwable) {}
         hasAccelerometerData = false
         hasMagnetometerData = false
         isListening = false
@@ -107,6 +130,8 @@ class QiblaSensorManager(context: Context) : SensorEventListener {
 
     override fun onSensorChanged(event: SensorEvent?) {
         if (event == null) return
+
+        try {
 
         when (event.sensor.type) {
             Sensor.TYPE_ROTATION_VECTOR -> {
@@ -142,7 +167,8 @@ class QiblaSensorManager(context: Context) : SensorEventListener {
                 }
             }
         }
-    }
+    } catch (_: Throwable) {}
+}
 
     private fun processSensors(accuracy: Int) {
         val success = SensorManager.getRotationMatrix(
@@ -203,6 +229,8 @@ class QiblaSensorManager(context: Context) : SensorEventListener {
     }
 
     override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        _sensorData.value = _sensorData.value.copy(accuracy = accuracy)
+        try {
+            _sensorData.value = _sensorData.value.copy(accuracy = accuracy)
+        } catch (_: Throwable) {}
     }
 }

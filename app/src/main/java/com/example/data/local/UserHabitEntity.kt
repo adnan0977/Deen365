@@ -22,7 +22,7 @@ data class UserHabitEntity(
     val primarySpiritualGoal: String = "Consistently pray 5 daily prayers and learn Tafseer",
     val lastAiHabitInsight: String = "",
     val lastAnalyzedDate: String = "",
-    val selectedBottomTabsCsv: String = "DASHBOARD,QURAN,VIDEOS,NAMAZ_FASTING"
+    val selectedBottomTabsCsv: String = "DASHBOARD,QURAN,AI_GUIDE,HADITH_DUAS,MORE"
 ) {
     fun getWatchedIdsSet(): Set<String> {
         return if (watchedVideoIdsCsv.isBlank()) emptySet() else watchedVideoIdsCsv.split(",").filter { it.isNotBlank() }.toSet()
@@ -30,7 +30,7 @@ data class UserHabitEntity(
 
     fun getSelectedBottomTabNames(): List<String> {
         return if (selectedBottomTabsCsv.isBlank()) {
-            listOf("DASHBOARD", "QURAN", "VIDEOS", "NAMAZ_FASTING")
+            listOf("DASHBOARD", "QURAN", "AI_GUIDE", "HADITH_DUAS", "MORE")
         } else {
             selectedBottomTabsCsv.split(",").filter { it.isNotBlank() }
         }

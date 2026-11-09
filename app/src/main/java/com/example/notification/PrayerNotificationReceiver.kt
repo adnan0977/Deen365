@@ -141,13 +141,7 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
                     PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
                 )
 
-                try {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                        alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeMillis, pendingIntent)
-                    } else {
-                        alarmManager.setExact(AlarmManager.RTC_WAKEUP, snoozeMillis, pendingIntent)
-                    }
-                } catch (_: Exception) {}
+                PrayerNotificationHelper.scheduleAlarmExact(alarmManager, snoozeMillis, pendingIntent)
             }
 
             PrayerNotificationHelper.ACTION_FASTING_REMINDER -> {
@@ -269,13 +263,7 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
                         PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
                     )
 
-                    try {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                            alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, snoozeMillis, pendingIntent)
-                        } else {
-                            alarmManager.setExact(AlarmManager.RTC_WAKEUP, snoozeMillis, pendingIntent)
-                        }
-                    } catch (_: Exception) {}
+                    PrayerNotificationHelper.scheduleAlarmExact(alarmManager, snoozeMillis, pendingIntent)
                 }
             }
 
@@ -319,13 +307,7 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
-            }
-        } catch (_: Exception) {}
+        PrayerNotificationHelper.scheduleAlarmExact(alarmManager, nextDayMillis, pendingIntent)
     }
 
     private fun rescheduleNextFastingOccurrence(
@@ -351,13 +333,7 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
-            }
-        } catch (_: Exception) {}
+        PrayerNotificationHelper.scheduleAlarmExact(alarmManager, nextDayMillis, pendingIntent)
     }
 
     private fun rescheduleNextQuranOccurrence(
@@ -383,13 +359,7 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextDayMillis, pendingIntent)
-            }
-        } catch (_: Exception) {}
+        PrayerNotificationHelper.scheduleAlarmExact(alarmManager, nextDayMillis, pendingIntent)
     }
 
     private fun rescheduleNextFridayKahfOccurrence(
@@ -413,12 +383,6 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0)
         )
 
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, nextWeekMillis, pendingIntent)
-            } else {
-                alarmManager.setExact(AlarmManager.RTC_WAKEUP, nextWeekMillis, pendingIntent)
-            }
-        } catch (_: Exception) {}
+        PrayerNotificationHelper.scheduleAlarmExact(alarmManager, nextWeekMillis, pendingIntent)
     }
 }

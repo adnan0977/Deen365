@@ -1,13 +1,17 @@
 package com.example.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -23,19 +27,21 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.AdminVideoManagementDialog
-import com.example.ui.components.UserAccountDialog
 import com.example.ui.theme.EmeraldPrimary
 import com.example.ui.theme.GoldAccent
 import com.example.ui.theme.GoldLight
+import com.example.ui.components.GoogleAdBannerPlaceholder
+import com.example.ui.components.VersionControlCard
 import com.example.ui.viewmodel.DeenUiState
 import com.example.ui.viewmodel.DeenViewModel
 import com.example.ui.viewmodel.MainTab
 
 data class MoreFeatureItem(
+    val id: String,
     val title: String,
     val subtitle: String,
     val icon: ImageVector,
+    val category: String,
     val badge: String? = null,
     val onClick: () -> Unit
 )
@@ -53,121 +59,240 @@ fun MoreScreen(
     val isUserLoggedIn = userProfile != null && userProfile.uid.isNotBlank()
     val isAdmin = userProfile?.role == "admin" || state.isAdminLoggedIn
 
-    val featureItems = remember {
+    var selectedCategoryFilter by remember { mutableStateOf("All") }
+    var searchQuery by remember { mutableStateOf("") }
+
+    val categories = remember {
+        listOf("All", "Pillars & Worship", "Quran & Dhikr", "Sunnah & Lifestyle", "Knowledge & Community")
+    }
+
+    val allFeatureItems = remember {
         listOf(
+            // --- Pillars & Worship ---
             MoreFeatureItem(
-                title = "Holy Quran",
-                subtitle = "114 Surahs, translation & audio",
-                icon = Icons.Default.MenuBook,
-                badge = "Recitations",
-                onClick = { viewModel.setTab(MainTab.QURAN) }
-            ),
-            MoreFeatureItem(
-                title = "Namaz & Schools of Thought",
-                subtitle = "Timetable & 4 Madhhab guides",
+                id = "namaz",
+                title = "Namaz & Prayer Times",
+                subtitle = "Timetable, Adhan alarms, 4 Madhhabs & steps",
                 icon = Icons.Default.Schedule,
-                badge = "4 Madhhabs",
-                onClick = { viewModel.setTab(MainTab.NAMAZ) }
+                category = "Pillars & Worship",
+                badge = "5 Prayers",
+                onClick = { viewModel.setTab(MainTab.NAMAZ_FASTING) }
             ),
             MoreFeatureItem(
-                title = "Qibla Direction",
-                subtitle = "Precision compass & globe theme",
+                id = "qibla",
+                title = "Qibla Compass",
+                subtitle = "Precision magnetometer & Kaaba bearing",
                 icon = Icons.Default.Explore,
-                badge = "Sensors",
+                category = "Pillars & Worship",
+                badge = "Live GPS",
                 onClick = { viewModel.setTab(MainTab.QIBLA) }
             ),
             MoreFeatureItem(
-                title = "Fasting & Calendar",
-                subtitle = "Hijri date, Suhoor & Iftar times",
+                id = "fasting",
+                title = "Fasting & Sawm Tracker",
+                subtitle = "Suhoor/Iftar countdowns & White Days fasting",
                 icon = Icons.Default.NightsStay,
-                badge = "Hijri 1446",
+                category = "Pillars & Worship",
+                badge = "Sunnah",
                 onClick = { viewModel.setTab(MainTab.FASTING) }
             ),
             MoreFeatureItem(
-                title = "Mosque Locator",
-                subtitle = "Nearest masajid with Google Maps",
+                id = "zakat",
+                title = "Zakat Calculator",
+                subtitle = "Live gold/silver prices, 2.5%, Hawl & Nisab",
+                icon = Icons.Default.Savings,
+                category = "Pillars & Worship",
+                badge = "Live Gold",
+                onClick = { viewModel.setTab(MainTab.ZAKAT) }
+            ),
+            MoreFeatureItem(
+                id = "hajj_umrah",
+                title = "Hajj & Umrah Guide",
+                subtitle = "Step-by-step rituals, Tawaf counter & Talbiyah audio",
                 icon = Icons.Default.Mosque,
-                badge = "GPS Nav",
-                onClick = { viewModel.setTab(MainTab.MOSQUES) }
+                category = "Pillars & Worship",
+                badge = "Interactive",
+                onClick = { viewModel.setTab(MainTab.HAJJ_UMRAH) }
             ),
             MoreFeatureItem(
-                title = "Islamic Videos",
-                subtitle = "YouTube lectures by scholar & topic",
-                icon = Icons.Default.VideoLibrary,
-                badge = "YouTube",
-                onClick = { viewModel.setTab(MainTab.VIDEOS) }
+                id = "qada_salah",
+                title = "Qada Salah Tracker",
+                subtitle = "Missed prayers log, targets & milestone streaks",
+                icon = Icons.Default.Update,
+                category = "Pillars & Worship",
+                badge = "Streaks",
+                onClick = { viewModel.setTab(MainTab.QADA_SALAH) }
+            ),
+
+            // --- Quran & Dhikr ---
+            MoreFeatureItem(
+                id = "khatam_planner",
+                title = "Khatam Quran Planner",
+                subtitle = "Pacing per prayer & authentic Du'a Khatm al-Quran",
+                icon = Icons.Default.Book,
+                category = "Quran & Dhikr",
+                badge = "30-Day Goal",
+                onClick = { viewModel.setTab(MainTab.KHATAM_PLANNER) }
             ),
             MoreFeatureItem(
-                title = "Hadith & Prophetic Sunnah",
-                subtitle = "Bukhari, Muslim, 40 Nawawi & search",
-                icon = Icons.Default.LibraryBooks,
-                badge = "Searchable",
-                onClick = { viewModel.setTab(MainTab.HADITH_DUAS) }
+                id = "ruqyah_healing",
+                title = "Ruqyah & Spiritual Healing",
+                subtitle = "Audio recitation, Ayat ash-Shifa & prophetic ways",
+                icon = Icons.Default.Healing,
+                category = "Quran & Dhikr",
+                badge = "Audio Shifa",
+                onClick = { viewModel.setTab(MainTab.RUQYAH_HEALING) }
             ),
             MoreFeatureItem(
-                title = "Duas & Memorization",
-                subtitle = "Hisn al-Muslim grid & learn mode",
-                icon = Icons.Default.VolunteerActivism,
-                badge = "Learn Mode",
-                onClick = { viewModel.setTab(MainTab.HADITH_DUAS) }
+                id = "asma_ul_husna",
+                title = "99 Names of Allah",
+                subtitle = "Asma-ul-Husna audio, memorization & meanings",
+                icon = Icons.Default.AutoAwesome,
+                category = "Quran & Dhikr",
+                badge = "99 Names",
+                onClick = { viewModel.setTab(MainTab.ASMA_UL_HUSNA) }
             ),
             MoreFeatureItem(
-                title = "Dhikr & Tasbih",
-                subtitle = "Daily targets & digital counter",
+                id = "tasbih",
+                title = "Dhikr & Digital Tasbih",
+                subtitle = "Haptic feedback, custom counts & morning/evening adkhar",
                 icon = Icons.Default.Fingerprint,
-                badge = "Counter",
+                category = "Quran & Dhikr",
+                badge = "Haptics",
                 onClick = { viewModel.setTab(MainTab.TASBIH) }
             ),
+
+            // --- Sunnah & Lifestyle ---
             MoreFeatureItem(
+                id = "hijri_calendar",
+                title = "Hijri Calendar & Events",
+                subtitle = "12 lunar months, sacred dates & fasting occasions",
+                icon = Icons.Default.CalendarMonth,
+                category = "Sunnah & Lifestyle",
+                badge = "1448 AH",
+                onClick = { viewModel.setTab(MainTab.HIJRI_CALENDAR) }
+            ),
+            MoreFeatureItem(
+                id = "halal_guide",
+                title = "Halal Food & E-Numbers",
+                subtitle = "350+ additive verdicts (Halal, Haram, Mushbooh)",
+                icon = Icons.Default.Restaurant,
+                category = "Sunnah & Lifestyle",
+                badge = "350+ Codes",
+                onClick = { viewModel.setTab(MainTab.HALAL_GUIDE) }
+            ),
+            MoreFeatureItem(
+                id = "mirath_calc",
+                title = "Inheritance (Mirath)",
+                subtitle = "Quranic shares & comparative 4 Madhab jurisprudence",
+                icon = Icons.Default.Calculate,
+                category = "Sunnah & Lifestyle",
+                badge = "4 Madhabs",
+                onClick = { viewModel.setTab(MainTab.INHERITANCE_CALCULATOR) }
+            ),
+            MoreFeatureItem(
+                id = "baby_names",
+                title = "Islamic Baby Names",
+                subtitle = "200+ authentic boy/girl names, meanings & Sunnah",
+                icon = Icons.Default.Face,
+                category = "Sunnah & Lifestyle",
+                badge = "Meanings",
+                onClick = { viewModel.setTab(MainTab.BABY_NAMES) }
+            ),
+            MoreFeatureItem(
+                id = "haramain_live",
+                title = "24/7 Haramain Live TV",
+                subtitle = "Makkah Quran TV & Madinah Sunnah TV with dual clock",
+                icon = Icons.Default.LiveTv,
+                category = "Sunnah & Lifestyle",
+                badge = "Makkah Live",
+                onClick = { viewModel.setTab(MainTab.HARAMAIN_LIVE) }
+            ),
+            MoreFeatureItem(
+                id = "mosques",
+                title = "Mosque Locator",
+                subtitle = "Nearest masajid, Google Maps navigation & Iqamah times",
+                icon = Icons.Default.Place,
+                category = "Sunnah & Lifestyle",
+                badge = "Google Maps",
+                onClick = { viewModel.setTab(MainTab.MOSQUES) }
+            ),
+
+            // --- Knowledge & Community ---
+            MoreFeatureItem(
+                id = "heritage",
                 title = "Islamic Heritage (Alim.org)",
-                subtitle = "25 Prophets, 4 Caliphs, Sahaba & Eras",
+                subtitle = "25 Prophets, 4 Caliphs, Sahaba & Islamic Eras",
                 icon = Icons.Default.HistoryEdu,
+                category = "Knowledge & Community",
                 badge = "Alim.org",
                 onClick = { viewModel.setTab(MainTab.ISLAMIC_HERITAGE) }
             ),
             MoreFeatureItem(
-                title = "Islamic Books & Reader",
-                subtitle = "Classical works, crawler & in-app reader",
+                id = "books",
+                title = "Classical Books Library",
+                subtitle = "Foundational texts, crawler & night-mode reader",
                 icon = Icons.Default.AutoStories,
-                badge = "Library",
+                category = "Knowledge & Community",
+                badge = "In-App Reader",
                 onClick = { viewModel.setTab(MainTab.ISLAMIC_BOOKS) }
             ),
             MoreFeatureItem(
+                id = "community",
                 title = "Ummah Community",
                 subtitle = "Reflections, discussions & mutual Du'a support",
                 icon = Icons.Default.Groups,
-                badge = "Community",
+                category = "Knowledge & Community",
+                badge = "Ummah",
                 onClick = { viewModel.setTab(MainTab.COMMUNITY) }
             ),
             MoreFeatureItem(
+                id = "learning",
                 title = "Learning Academy",
-                subtitle = "Interactive knowledge tracks & quizzes",
+                subtitle = "Structured knowledge tracks, interactive quizzes",
                 icon = Icons.Default.School,
-                badge = "Quizzes",
+                category = "Knowledge & Community",
+                badge = "Interactive",
                 onClick = { viewModel.setTab(MainTab.INTERACTIVE_LEARNING) }
             ),
             MoreFeatureItem(
+                id = "sahaba",
                 title = "Sahaba Biographies",
-                subtitle = "Ashara Mubashara & linked Hadiths",
+                subtitle = "Ashara Mubashara & linked Sahih Hadiths",
                 icon = Icons.Default.Stars,
+                category = "Knowledge & Community",
                 badge = "Companions",
                 onClick = { viewModel.setTab(MainTab.SAHABA_BIOGRAPHIES) }
             ),
             MoreFeatureItem(
-                title = "Deen AI Companion",
-                subtitle = "Spiritual guidance with Gemini 3.5",
-                icon = Icons.Default.AutoAwesome,
-                badge = "Premium AI",
-                onClick = { viewModel.setTab(MainTab.AI_GUIDE) }
+                id = "videos",
+                title = "Islamic Video Lectures",
+                subtitle = "Curated YouTube lectures by scholar & topic",
+                icon = Icons.Default.VideoLibrary,
+                category = "Knowledge & Community",
+                badge = "YouTube",
+                onClick = { viewModel.setTab(MainTab.VIDEOS) }
             ),
             MoreFeatureItem(
-                title = "Theme Suite & Settings",
-                subtitle = "Emerald, Midnight & Andalusian",
-                icon = Icons.Default.Palette,
-                badge = "3 Themes",
+                id = "settings",
+                title = "Settings & App Themes",
+                subtitle = "Emerald, Midnight & Andalusian themes, alerts & backup",
+                icon = Icons.Default.Settings,
+                category = "Knowledge & Community",
+                badge = "Preferences",
                 onClick = { viewModel.setTab(MainTab.SETTINGS) }
             )
         )
+    }
+
+    val filteredItems = remember(selectedCategoryFilter, searchQuery) {
+        allFeatureItems.filter { item ->
+            val matchesCategory = selectedCategoryFilter == "All" || item.category == selectedCategoryFilter
+            val matchesQuery = searchQuery.isBlank() ||
+                    item.title.contains(searchQuery, ignoreCase = true) ||
+                    item.subtitle.contains(searchQuery, ignoreCase = true)
+            matchesCategory && matchesQuery
+        }
     }
 
     Column(
@@ -176,41 +301,108 @@ fun MoreScreen(
             .background(MaterialTheme.colorScheme.background)
     ) {
         // Screen Header
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column {
-                Text(
-                    text = "Deen365 Explore",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "All Islamic Modules",
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     )
-                )
-                Text(
-                    text = "All Islamic modules, navigation & accounts",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                    Text(
+                        text = "Explore the complete Deen365 suite of features",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                IconButton(
+                    onClick = { viewModel.openSettings() },
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .testTag("more_screen_settings_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Settings",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
-            IconButton(
-                onClick = { viewModel.openSettings() },
+            // Search Bar
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = { Text("Search modules (e.g. Zakat, Mirath, Qibla...)") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = "Search",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotEmpty()) {
+                        IconButton(onClick = { searchQuery = "" }) {
+                            Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        }
+                    }
+                },
+                singleLine = true,
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .testTag("more_screen_settings_button")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp)
+                    .fillMaxWidth()
+                    .testTag("search_more_modules_input"),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = EmeraldPrimary,
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
                 )
+            )
+
+            // Category Filter Rail
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(vertical = 4.dp)
+            ) {
+                items(categories) { category ->
+                    val isSelected = category == selectedCategoryFilter
+                    FilterChip(
+                        selected = isSelected,
+                        onClick = { selectedCategoryFilter = category },
+                        label = {
+                            Text(
+                                text = category,
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = EmeraldPrimary,
+                            selectedLabelColor = Color.White
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = if (isSelected) EmeraldPrimary else MaterialTheme.colorScheme.outlineVariant
+                        ),
+                        modifier = Modifier.testTag("filter_chip_${category.lowercase().replace(" ", "_")}")
+                    )
+                }
             }
         }
 
@@ -220,13 +412,13 @@ fun MoreScreen(
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // 1. Prominent User Account & Role Header Banner
+            // 1. User Account & Role Header Banner
             item(span = { GridItemSpan(maxLineSpan) }) {
                 Card(
-                    shape = RoundedCornerShape(20.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     modifier = Modifier
@@ -235,7 +427,7 @@ fun MoreScreen(
                         .testTag("user_account_header_card")
                 ) {
                     Row(
-                        modifier = Modifier.padding(16.dp),
+                        modifier = Modifier.padding(14.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -246,14 +438,14 @@ fun MoreScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = EmeraldPrimary.copy(alpha = 0.15f),
-                                modifier = Modifier.size(46.dp)
+                                modifier = Modifier.size(44.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = if (isUserLoggedIn) Icons.Default.AccountCircle else Icons.Default.PersonOutline,
                                         contentDescription = null,
                                         tint = EmeraldPrimary,
-                                        modifier = Modifier.size(28.dp)
+                                        modifier = Modifier.size(26.dp)
                                     )
                                 }
                             }
@@ -267,7 +459,7 @@ fun MoreScreen(
                                 val roleLabel = when (userProfile?.role) {
                                     "admin" -> "Administrator"
                                     "subscriber" -> "Premium Subscriber"
-                                    else -> if (isUserLoggedIn) "Normal User" else "Guest Mode (Tap to login)"
+                                    else -> if (isUserLoggedIn) "Normal User" else "Guest Mode (Tap to sync)"
                                 }
                                 Text(
                                     text = roleLabel,
@@ -287,19 +479,19 @@ fun MoreScreen(
                             colors = ButtonDefaults.buttonColors(containerColor = EmeraldPrimary),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                         ) {
-                            Text(if (isUserLoggedIn) "Manage" else "Login / Join", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text(if (isUserLoggedIn) "Manage" else "Login", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
-            // 2. Administrator Management Card (Visible if Admin or logged in as Admin)
+            // 2. Administrator Management Card (Visible if Admin)
             if (isAdmin) {
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Card(
                         shape = RoundedCornerShape(18.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)),
-                        border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
+                        border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
                         modifier = Modifier.fillMaxWidth().testTag("admin_management_card")
                     ) {
                         Column(
@@ -326,12 +518,6 @@ fun MoreScreen(
                                     Text("ADMIN ACCESS", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                                 }
                             }
-
-                            Text(
-                                text = "Manage YouTube video lectures, configure subscription pricing in Firestore, and review user translation modules.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -363,20 +549,21 @@ fun MoreScreen(
                 }
             }
 
-            // 3. Grid of all Modules
-            items(featureItems) { item ->
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            // 3. Grid of Modules
+            items(filteredItems) { item ->
+                ElevatedCard(
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
                         .clickable { item.onClick() }
-                        .testTag("feature_card_${item.title.lowercase().replace(" ", "_")}")
+                        .testTag("feature_card_${item.id}")
                 ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -386,14 +573,14 @@ fun MoreScreen(
                             Surface(
                                 shape = CircleShape,
                                 color = EmeraldPrimary.copy(alpha = 0.12f),
-                                modifier = Modifier.size(38.dp)
+                                modifier = Modifier.size(42.dp)
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(
                                         imageVector = item.icon,
                                         contentDescription = item.title,
                                         tint = EmeraldPrimary,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
@@ -405,14 +592,18 @@ fun MoreScreen(
                                 ) {
                                     Text(
                                         text = item.badge,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold, color = GoldAccent),
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = GoldAccent
+                                        ),
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(
                                 text = item.title,
                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
@@ -423,11 +614,27 @@ fun MoreScreen(
                                 text = item.subtitle,
                                 style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 2
+                                maxLines = 2,
+                                minLines = 2
                             )
                         }
                     }
                 }
+            }
+
+            // Google Ads Reserved Banner Space
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                GoogleAdBannerPlaceholder(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    adSlotName = "More Modules Bottom Banner"
+                )
+            }
+
+            // Version Control Card & Release History
+            item(span = { GridItemSpan(maxLineSpan) }) {
+                VersionControlCard(
+                    modifier = Modifier.padding(vertical = 6.dp)
+                )
             }
         }
     }

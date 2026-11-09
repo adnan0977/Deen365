@@ -19,15 +19,8 @@ class HadithRepository(
 ) {
     private val TAG = "HadithRepository"
 
-    init {
-        scope.launch {
-            try {
-                hadithDao.insertHadiths(HadithSeedData.ALL_HADITHS)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error seeding initial hadiths: ${e.message}", e)
-            }
-        }
-    }
+    // No upfront bulk database seeding: hadiths are fetched via API on-demand
+    // and cached into Room DB only when the user opens each book/chapter.
 
     val allHadiths: Flow<List<HadithEntity>> = hadithDao.getAllHadiths()
 

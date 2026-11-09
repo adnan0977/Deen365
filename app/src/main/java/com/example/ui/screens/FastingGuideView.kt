@@ -223,6 +223,83 @@ fun FastingGuideView(
                         }
                     }
 
+                    // Interactive AI Fasting Advisor Card
+                    item {
+                        Card(
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(0.75.dp, GoldAccent.copy(alpha = 0.45f)),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("fasting_ai_advisor_card")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = GoldAccent.copy(alpha = 0.2f),
+                                            modifier = Modifier.size(28.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = GoldAccent, modifier = Modifier.size(15.dp))
+                                            }
+                                        }
+                                        Column {
+                                            Text(
+                                                text = "AI Fasting & Fiqh Coach",
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = EmeraldPrimary
+                                            )
+                                            Text(
+                                                text = "Get instant Quran & Sunnah rulings on fasting questions",
+                                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+
+                                val fastingPrompts = listOf(
+                                    "Valid medical & travel exemptions" to "What are the valid exemptions from fasting for travel, pregnancy, and sickness?",
+                                    "Inhalers & eye drops rulings" to "Does using an asthma inhaler, eye drops, or injections invalidate the fast?",
+                                    "Kaffarah vs Fidyah rules" to "What is the difference between Kaffarah and Fidyah, and how is each calculated?",
+                                    "Best Sunnah Suhoor diet" to "What are the best Sunnah foods and hydration habits for high energy during fasting?"
+                                )
+
+                                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    fastingPrompts.chunked(2).forEach { rowPrompts ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            rowPrompts.forEach { (label, query) ->
+                                                OutlinedButton(
+                                                    onClick = { viewModel.askAiAboutFasting(query) },
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                                    modifier = Modifier.weight(1f)
+                                                ) {
+                                                    Text(label, fontSize = 11.sp, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Step-by-Step Daily Fasting Journey
                     item {
                         Text(

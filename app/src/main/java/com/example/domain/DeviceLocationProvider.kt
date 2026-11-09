@@ -33,20 +33,28 @@ object DeviceLocationProvider {
     private const val TAG = "DeviceLocationProvider"
 
     fun hasLocationPermission(context: Context): Boolean {
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED ||
-                ContextCompat.checkSelfPermission(
-                    context,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ) == PackageManager.PERMISSION_GRANTED
+        return try {
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+        } catch (_: Throwable) {
+            false
+        }
     }
 
     @SuppressLint("MissingPermission")
     suspend fun getDeviceLocation(context: Context): DeviceLocationResult? = withContext(Dispatchers.IO) {
-        if (!hasLocationPermission(context)) {
-            Log.d(TAG, "Location permission not granted.")
+        try {
+            if (!hasLocationPermission(context)) {
+                Log.d(TAG, "Location permission not granted.")
+                return@withContext null
+            }
+        } catch (_: Throwable) {
             return@withContext null
         }
 
@@ -60,28 +68,28 @@ object DeviceLocationProvider {
                 fusedClient.getCurrentLocation(Priority.PRIORITY_BALANCED_POWER_ACCURACY, cts.token)
                     .addOnSuccessListener { location ->
                         if (location != null) {
-                            continuation.resume(location)
+                            if (continuation.isActive) continuation.resume(location)
                         } else {
                             // Fallback to last known location
                             fusedClient.lastLocation.addOnSuccessListener { lastLoc ->
-                                continuation.resume(lastLoc)
+                                if (continuation.isActive) continuation.resume(lastLoc)
                             }.addOnFailureListener {
-                                continuation.resume(null)
+                                if (continuation.isActive) continuation.resume(null)
                             }
                         }
                     }
                     .addOnFailureListener {
                         fusedClient.lastLocation.addOnSuccessListener { lastLoc ->
-                            continuation.resume(lastLoc)
+                            if (continuation.isActive) continuation.resume(lastLoc)
                         }.addOnFailureListener {
-                            continuation.resume(null)
+                            if (continuation.isActive) continuation.resume(null)
                         }
                     }
                 continuation.invokeOnCancellation {
-                    cts.cancel()
+                    try { cts.cancel() } catch (_: Throwable) {}
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
             Log.w(TAG, "FusedLocationProvider exception: ${e.message}")
         }
 
@@ -90,13 +98,13 @@ object DeviceLocationProvider {
             try {
                 val locMgr = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
                 if (locMgr != null) {
-                    val gpsLoc = locMgr.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                    val netLoc = locMgr.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                    val passiveLoc = locMgr.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+                    val gpsLoc = try { locMgr.getLastKnownLocation(LocationManager.GPS_PROVIDER) } catch (_: Throwable) { null }
+                    val netLoc = try { locMgr.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) } catch (_: Throwable) { null }
+                    val passiveLoc = try { locMgr.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER) } catch (_: Throwable) { null }
 
                     loc = listOfNotNull(gpsLoc, netLoc, passiveLoc).maxByOrNull { it.time }
                 }
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 Log.w(TAG, "LocationManager fallback error: ${e.message}")
             }
         }

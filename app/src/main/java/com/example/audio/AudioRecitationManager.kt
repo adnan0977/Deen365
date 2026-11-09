@@ -20,44 +20,52 @@ class AudioRecitationManager(context: Context) : TextToSpeech.OnInitListener {
     val currentPlayingId: StateFlow<String?> = _currentPlayingId.asStateFlow()
 
     init {
-        tts = TextToSpeech(context.applicationContext, this)
+        try {
+            tts = TextToSpeech(context.applicationContext, this)
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to instantiate TextToSpeech: ${e.message}")
+        }
     }
 
     override fun onInit(status: Int) {
-        if (status == TextToSpeech.SUCCESS) {
-            val arabicLocale = Locale("ar")
-            val result = tts?.setLanguage(arabicLocale)
-            if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Log.w(TAG, "Arabic TTS language missing or not supported, falling back to default locale")
-                isArabicSupported = false
-                tts?.setLanguage(Locale.US)
+        try {
+            if (status == TextToSpeech.SUCCESS) {
+                val arabicLocale = Locale("ar")
+                val result = tts?.setLanguage(arabicLocale)
+                if (result == TextToSpeech.LANG_MISSING_DATA || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                    Log.w(TAG, "Arabic TTS language missing or not supported, falling back to default locale")
+                    isArabicSupported = false
+                    tts?.setLanguage(Locale.US)
+                } else {
+                    isArabicSupported = true
+                }
+                tts?.setSpeechRate(0.85f) // Respectful, steady recitation cadence
+                tts?.setPitch(1.0f)
+
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        _currentPlayingId.value = utteranceId
+                    }
+
+                    override fun onDone(utteranceId: String?) {
+                        if (_currentPlayingId.value == utteranceId) {
+                            _currentPlayingId.value = null
+                        }
+                    }
+
+                    override fun onError(utteranceId: String?) {
+                        Log.w(TAG, "TTS utterance error on ID: $utteranceId")
+                        if (_currentPlayingId.value == utteranceId) {
+                            _currentPlayingId.value = null
+                        }
+                    }
+                })
+                isInitialized = true
             } else {
-                isArabicSupported = true
+                Log.e(TAG, "TextToSpeech initialization failed with status $status")
             }
-            tts?.setSpeechRate(0.85f) // Respectful, steady recitation cadence
-            tts?.setPitch(1.0f)
-
-            tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
-                override fun onStart(utteranceId: String?) {
-                    _currentPlayingId.value = utteranceId
-                }
-
-                override fun onDone(utteranceId: String?) {
-                    if (_currentPlayingId.value == utteranceId) {
-                        _currentPlayingId.value = null
-                    }
-                }
-
-                override fun onError(utteranceId: String?) {
-                    Log.w(TAG, "TTS utterance error on ID: $utteranceId")
-                    if (_currentPlayingId.value == utteranceId) {
-                        _currentPlayingId.value = null
-                    }
-                }
-            })
-            isInitialized = true
-        } else {
-            Log.e(TAG, "TextToSpeech initialization failed with status $status")
+        } catch (e: Throwable) {
+            Log.w(TAG, "Error in TextToSpeech onInit: ${e.message}")
         }
     }
 
@@ -76,10 +84,10 @@ class AudioRecitationManager(context: Context) : TextToSpeech.OnInitListener {
         _currentPlayingId.value = id
 
         val textToSpeak = if (isArabicSupported) {
-            tts?.setLanguage(Locale("ar"))
+            try { tts?.setLanguage(Locale("ar")) } catch (_: Throwable) {}
             arabicText.replace("•", " ").trim()
         } else {
-            tts?.setLanguage(Locale.US)
+            try { tts?.setLanguage(Locale.US) } catch (_: Throwable) {}
             if (fallbackTransliteration.isNotBlank()) {
                 fallbackTransliteration.replace("•", " ").trim()
             } else {
@@ -87,11 +95,17 @@ class AudioRecitationManager(context: Context) : TextToSpeech.OnInitListener {
             }
         }
 
-        tts?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, id)
+        try {
+            tts?.speak(textToSpeak, TextToSpeech.QUEUE_FLUSH, null, id)
+        } catch (e: Throwable) {
+            Log.w(TAG, "TTS speak failed: ${e.message}")
+        }
     }
 
     fun stop() {
-        tts?.stop()
+        try {
+            tts?.stop()
+        } catch (_: Throwable) {}
         _currentPlayingId.value = null
     }
 
@@ -101,7 +115,9 @@ class AudioRecitationManager(context: Context) : TextToSpeech.OnInitListener {
 
     fun shutdown() {
         stop()
-        tts?.shutdown()
+        try {
+            tts?.shutdown()
+        } catch (_: Throwable) {}
         tts = null
     }
 }

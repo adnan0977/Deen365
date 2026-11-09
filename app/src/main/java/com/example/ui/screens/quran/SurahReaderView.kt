@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.AyahEntity
@@ -234,8 +235,13 @@ fun SurahReaderView(
                             ) {
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                                 Text(
-                                    text = "Loading Surah ayahs...",
-                                    style = MaterialTheme.typography.bodyMedium,
+                                    text = "Fetching Surah ${surah.englishName} via API...",
+                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Caching into Room database for instant offline access",
+                                    style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
@@ -672,7 +678,9 @@ private fun SurahHeaderCard(
             Text(
                 text = "Surah ${surah.englishName} (${surah.englishTranslation})",
                 style = MaterialTheme.typography.titleMedium,
-                color = Color.White
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
             Text(
                 text = "${surah.revelationType} • ${surah.numberOfAyahs} Verses",
